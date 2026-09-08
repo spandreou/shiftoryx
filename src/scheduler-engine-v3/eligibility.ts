@@ -14,7 +14,7 @@ import type {
   Weekday,
 } from './types.ts';
 import { isFixedDayOff, isWithinActiveDates, resolveEffectiveStandardShift } from './employeeProfile.ts';
-import { timeToMinutesV3, calculateShiftDurationHoursV3 } from './config.ts';
+import { timeToMinutesV3, calculateShiftDurationHoursV3, shiftIntervalV3 } from './config.ts';
 
 export type EligibilityReason =
   | 'ELIGIBLE'
@@ -48,7 +48,7 @@ function hasAbsenceOnDate(
       a.employeeId === employeeId &&
       dateStr >= a.startDate &&
       dateStr <= a.endDate &&
-      a.scope === 'FULL_DAY',
+      ['FULL_DAY', 'PARTIAL_DAY'].includes(a.scope),
   );
 }
 
@@ -78,7 +78,7 @@ function wouldViolateRestInterval(
     if (s.date === prevDate) {
       // End of previous shift to start of new shift
       const endMin = timeToMinutesV3(s.endTime);
-      const restMinutes = (24 * 60 - endMin) + newStartMin;
+      const restMinutes = (24 * 60 - endMin - (s.crossMidnight ? 1440 : 0)) + newStartMin;
       if (restMinutes < minRestMinutes) return true;
     }
     if (s.date === dateStr && s.endTime !== shiftStartTime) {
@@ -166,9 +166,13 @@ export function evaluateEmployeeEligibilityV3(
     maxConsecutiveWorkingDays?: number | null;
     weekStartDate?: string;
     weekEndDate?: string;
+    shiftEndTime?: string;
+    crossMidnight?: boolean;
+    shiftDurationHours?: number;
   } = {},
 ): EligibilityResult {
   const eid = employee.id;
+  const prospectiveHours = options.shiftDurationHours ?? 0;
 
   // 1. Active check
   if (!employee.isActive) {
@@ -206,9 +210,17 @@ export function evaluateEmployeeEligibilityV3(
   }
 
   // 8. Daily hours
+  if (options.shiftEndTime) {
+    const candidate = shiftIntervalV3(dateStr, shiftStartTime, options.shiftEndTime, Boolean(options.crossMidnight));
+    for (const shift of existingShifts.filter(s => s.employeeId === eid)) {
+      const other = shiftIntervalV3(shift.date, shift.startTime, shift.endTime, Boolean(shift.crossMidnight));
+      const separation = Math.max(candidate.start - other.end, other.start - candidate.end) / 3600000;
+      if (separation < 0 || (options.minRestIntervalHours && separation < options.minRestIntervalHours)) return { eligible: false, reason: 'REST_INTERVAL', employeeId: eid };
+    }
+  }
   if (options.maxDailyHours && options.maxDailyHours > 0) {
     const dailyHours = getEmployeeHoursInRange(eid, dateStr, dateStr, existingShifts);
-    if (dailyHours >= options.maxDailyHours) {
+    if (dailyHours + prospectiveHours > options.maxDailyHours) {
       return { eligible: false, reason: 'DAILY_HOURS_EXCEEDED', employeeId: eid };
     }
   }
@@ -216,14 +228,14 @@ export function evaluateEmployeeEligibilityV3(
   // 9. Weekly hours
   if (options.maxWeeklyHours && options.maxWeeklyHours > 0 && options.weekStartDate && options.weekEndDate) {
     const weeklyHours = getEmployeeHoursInRange(eid, options.weekStartDate, options.weekEndDate, existingShifts);
-    if (weeklyHours >= options.maxWeeklyHours) {
+    if (weeklyHours + prospectiveHours > options.maxWeeklyHours) {
       return { eligible: false, reason: 'WEEKLY_HOURS_EXCEEDED', employeeId: eid };
     }
   }
 
   // 10. Consecutive days
   if (options.maxConsecutiveWorkingDays && options.maxConsecutiveWorkingDays > 0) {
-    const consecutive = getConsecutiveWorkDays(eid, dateStr, existingShifts);
+    const consecutive = getConsecutiveWorkDays(eid, addDaysSimple(dateStr, -1), existingShifts);
     if (consecutive >= options.maxConsecutiveWorkingDays) {
       return { eligible: false, reason: 'CONSECUTIVE_DAYS_EXCEEDED', employeeId: eid };
     }

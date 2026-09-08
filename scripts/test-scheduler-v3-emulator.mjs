@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import { connectAuthEmulator, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { connectFirestoreEmulator, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { connectStorageEmulator, ref, deleteObject } from 'firebase/storage';
+import { auth, db, storage } from '../src/firebase/config.js';
+import { schedulePublicationsRepository as repository } from '../src/repositories/schedulePublicationsRepository.ts';
+import { makeDefaultConfigV3, mapEmployeesV3, createDraftV3 } from '../src/services/schedulerV3Service.ts';
+import { buildPublicationV3 } from '../src/services/schedulePublicationService.ts';
+
+async function main() {
+  for(const key of ['FIRESTORE_EMULATOR_HOST','FIREBASE_AUTH_EMULATOR_HOST','FIREBASE_STORAGE_EMULATOR_HOST'])if(!/^127\.0\.0\.1:\d+$/.test(process.env[key]||''))throw new Error('Local emulator variables required.');
+  connectAuthEmulator(auth,'http://'+process.env.FIREBASE_AUTH_EMULATOR_HOST,{disableWarnings:true});
+  const [fh,fp]=process.env.FIRESTORE_EMULATOR_HOST.split(':');connectFirestoreEmulator(db,fh,Number(fp));
+  const [sh,sp]=process.env.FIREBASE_STORAGE_EMULATOR_HOST.split(':');connectStorageEmulator(storage,sh,Number(sp));
+  const project='demo-shiftoryx-v3';
+  const seed=async(path,values)=>{
+    const fields=Object.fromEntries(Object.entries(values).map(([k,v])=>[k,{stringValue:String(v)}]));
+    const result=await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${project}/databases/(default)/documents/${path}`,{method:'PATCH',headers:{Authorization:'Bearer owner','Content-Type':'application/json'},body:JSON.stringify({fields})});
+    assert.equal(result.ok,true,'emulator seed');
+  };
+  const {user}=await createUserWithEmailAndPassword(auth,`v3-${Date.now()}@example.test`,'emulator-only-12345');
+  await seed(`tenantMemberships/${user.uid}_tenant-a`,{uid:user.uid,tenantId:'tenant-a',status:'ACTIVE',role:'OWNER'});
+  await seed('tenants/tenant-a/employees/a',{fullName:'Μαρία'});
+  const employees=mapEmployeesV3([{id:'a',fullName:'Μαρία',isActive:true}]);const config=makeDefaultConfigV3('tenant-a');
+  console.log('CHECK settings');
+  await repository.saveSettings(config,employees);
+  assert.equal((await getDoc(doc(db,'tenants/tenant-a/settings/scheduler'))).data().schedulerSchemaVersion,3);
+  const draft=createDraftV3({config,employees,absences:[],periodStart:'2026-09-07',periodEnd:'2026-09-13',periodType:'WEEK',options:{balanceWeeklyTargets:true}},'emulator-draft');
+  console.log('CHECK draft roundtrip');
+  await repository.saveDraft(draft);const loaded=await repository.loadDraft('tenant-a',draft.id);assert.equal(loaded.shifts.length,draft.shifts.length);
+  loaded.shifts.pop();await repository.saveDraft(loaded);assert.equal((await repository.loadDraft('tenant-a',draft.id)).shifts.length,loaded.shifts.length);
+  await assert.rejects(()=>repository.saveDraft(loaded),'stale draft revision rejected');
+  console.log('CHECK concurrent reservations');
+  const key='WEEK_2026-09-07_2026-09-13';const versions=await Promise.all([repository.reserve('tenant-a',key,'pub-a'),repository.reserve('tenant-a',key,'pub-b')]);
+  assert.deepEqual([...versions].sort(),[1,2]);
+  const snapshots=versions.map((version,n)=>buildPublicationV3(draft,{tenantId:'tenant-a',uid:user.uid,id:n?'pub-b':'pub-a',version,timestamp:'2026-09-08T00:00:00Z'}));
+  console.log('CHECK PDF upload');
+  for(const snapshot of snapshots)await repository.uploadPdf('tenant-a',snapshot.pdfStoragePath,new TextEncoder().encode('%PDF-1.4 emulator immutable test'));
+  // Newer completion first; older completion must not roll the pointer back.
+  console.log('CHECK finalize');
+  for(const snapshot of [...snapshots].sort((a,b)=>b.version-a.version))await repository.finalize(snapshot);
+  assert.equal((await getDoc(doc(db,'tenants/tenant-a/schedulePublicationPeriods',key))).data().latestVersion,2);
+  assert.equal((await repository.list('tenant-a')).length,2);
+  assert.equal((await getDoc(doc(db,'tenants/tenant-a/publicMonths/2026-09'))).data().shiftCount,draft.shifts.length);
+  console.log('CHECK month clears stale weekly projections');
+  const monthDraft={...draft,periodType:'MONTH',periodStart:'2026-09-01',periodEnd:'2026-09-30',shifts:[]};
+  const monthKey='MONTH_2026-09-01_2026-09-30';
+  const monthVersion=await repository.reserve('tenant-a',monthKey,'pub-month');
+  const monthSnapshot=buildPublicationV3(monthDraft,{tenantId:'tenant-a',uid:user.uid,id:'pub-month',version:monthVersion,timestamp:'2026-09-08T01:00:00Z'});
+  await repository.uploadPdf('tenant-a',monthSnapshot.pdfStoragePath,new TextEncoder().encode('%PDF-1.4 month test'));
+  await repository.finalize(monthSnapshot);
+  assert.equal((await getDoc(doc(db,'tenants/tenant-a/publicSchedules/2026-09-07'))).data().shiftCount,0);
+  assert.equal((await getDoc(doc(db,'tenants/tenant-a/schedulePublications/pub-a'))).data().shifts.length,draft.shifts.length);
+  await assert.rejects(()=>updateDoc(doc(db,'tenants/tenant-a/schedulePublications/pub-a'),{version:99}));
+  await assert.rejects(()=>deleteDoc(doc(db,'tenants/tenant-a/schedulePublications/pub-a')));
+  await assert.rejects(()=>repository.uploadPdf('tenant-a',snapshots[0].pdfStoragePath,new Uint8Array([1])));
+  await assert.rejects(()=>deleteObject(ref(storage,snapshots[0].pdfStoragePath)));
+  assert.ok((await repository.download('tenant-a','pub-a')).byteLength>0);
+  await assert.rejects(()=>repository.list('tenant-b'));
+  await seed(`platformAdmins/${user.uid}`,{status:'ACTIVE'});
+  await assert.rejects(()=>repository.list('tenant-a'));
+  await assert.rejects(()=>repository.download('tenant-a','pub-a'));
+  await signOut(auth);await assert.rejects(()=>getDoc(doc(db,'tenants/tenant-a/schedulePublications/pub-a')));
+  assert.equal((await getDoc(doc(db,'tenants/tenant-a/publicSchedules/2026-09-07'))).exists(),true);
+  console.log('V3 emulator PASS: settings, draft roundtrip/replacement, concurrent versions, latest pointer, immutable snapshot/PDF, OWNER access, cross-tenant/platform-admin/anonymous denial, public projection.');
+}
+main().then(()=>process.exit(0)).catch(error=>{console.error('V3 emulator FAIL:',error.code||error.message);process.exit(1);});

@@ -37,7 +37,7 @@ export function subscribeShifts({ tenantId }, onData, onError) {
   return onSnapshot(
     shiftsQuery,
     (snapshot) => {
-      onData(toDataWithId(snapshot));
+      onData(toDataWithId(snapshot).filter(shift => shift.schedulerSchemaVersion !== 3));
     },
     onError,
   );
@@ -132,8 +132,9 @@ export async function removeShiftsByEmployee(employeeId, { tenantId } = {}) {
     query(tenantCollection(tenantId, TENANT_SCOPED_COLLECTIONS.shifts), where('employeeId', '==', employeeId)),
   );
 
-  const removed = shiftsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-  await commitBatchChunks(shiftsSnapshot.docs, (batch, item) => {
+  const legacyDocs = shiftsSnapshot.docs.filter(item => item.data().schedulerSchemaVersion !== 3);
+  const removed = legacyDocs.map((item) => ({ id: item.id, ...item.data() }));
+  await commitBatchChunks(legacyDocs, (batch, item) => {
     batch.delete(tenantDoc(tenantId, TENANT_SCOPED_COLLECTIONS.shifts, item.id));
   });
 
@@ -154,7 +155,7 @@ export async function removeShiftsByDates(dates, { tenantId } = {}) {
     );
 
     shiftsSnapshot.docs.forEach((item) => {
-      matchedDocsById.set(item.id, item);
+      if (item.data().schedulerSchemaVersion !== 3) matchedDocsById.set(item.id, item);
     });
   }
 
@@ -188,7 +189,7 @@ export async function fetchShiftsOnce({ tenantId } = {}) {
   const shiftsQuery = query(tenantCollection(tenantId, TENANT_SCOPED_COLLECTIONS.shifts), orderBy('date', 'asc'));
   try {
     const snapshot = await getDocs(shiftsQuery);
-    return toDataWithId(snapshot);
+    return toDataWithId(snapshot).filter(shift => shift.schedulerSchemaVersion !== 3);
   } catch (error) {
     handleFirestoreFailure(error);
     return [];
@@ -208,7 +209,7 @@ export async function fetchShiftsByDates(dates, { tenantId } = {}) {
       query(tenantCollection(tenantId, TENANT_SCOPED_COLLECTIONS.shifts), where('date', 'in', dateChunk)),
     );
 
-    matchedShifts.push(...toDataWithId(shiftsSnapshot));
+    matchedShifts.push(...toDataWithId(shiftsSnapshot).filter(shift => shift.schedulerSchemaVersion !== 3));
   }
 
   return matchedShifts.sort((a, b) => `${a.date}_${a.startTime}`.localeCompare(`${b.date}_${b.startTime}`));
@@ -229,6 +230,7 @@ export async function hasConsecutiveSundayAssignment({ tenantId, employeeId, pre
 
   return sundaySnapshot.docs.some((item) => {
     const shift = item.data();
+    if (shift.schedulerSchemaVersion === 3) return false;
     return shift.startTime === '08:00' && shift.endTime === '20:00';
   });
 }

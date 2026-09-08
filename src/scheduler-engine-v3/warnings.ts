@@ -1,313 +1,83 @@
-/**
- * ShiftOryx Scheduler V3 — Warning Engine
- *
- * Shared non-blocking schedule analyzer.
- * Used for generation, preview edits, and publish validation.
- * ALL warnings are blocking: false.
- * Pure function — no Firestore, no Firebase.
- */
-
-import type {
-  EmployeeV3,
-  EmployeeAbsenceV3,
-  GeneratedShiftV3,
-  SchedulerConfigV3,
-  ScheduleWarningV3,
-  WarningCodeV3,
-} from './types.ts';
-import { timeToMinutesV3 } from './config.ts';
-import { isFixedDayOff, isWithinActiveDates } from './employeeProfile.ts';
+import type { EmployeeV3, EmployeeAbsenceV3, GeneratedShiftV3, SchedulerConfigV3, ScheduleWarningV3, WarningCodeV3 } from './types.ts';
+import { shiftIntervalV3 } from './config.ts';
+import { isFixedDayOff, resolveEffectiveStandardShift } from './employeeProfile.ts';
 import { eachDateInRange, getWeekdayForDate } from './coverage.ts';
-import { getMondayOfWeek } from './employeeProfile.ts';
 
-let _warnIdCounter = 0;
-
-function warnId(): string {
-  _warnIdCounter++;
-  return `warn-${_warnIdCounter.toString().padStart(6, '0')}`;
+export function getWeekStartV3(date: string, weekStartDay = 1): string {
+  const d = new Date(date + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() - weekStartDay % 7 + 7) % 7));
+  return d.toISOString().slice(0, 10);
 }
 
-function makeWarning(
-  code: WarningCodeV3,
-  severity: 'INFO' | 'WARNING',
-  message: string,
-  overrides: Partial<ScheduleWarningV3> = {},
-): ScheduleWarningV3 {
-  return {
-    id: warnId(),
-    code,
-    severity,
-    blocking: false,
-    message,
-    ...overrides,
-  };
-}
-
-/**
- * Analyze a schedule for all warning conditions.
- * This is the single shared analyzer used by:
- * - Generator (post-generation)
- * - Preview editor (after each edit)
- * - Publish gate (pre-publish review)
- *
- * @param config Tenant V3 configuration
- * @param employees All employees
- * @param absences All absences in the period
- * @param shifts Current schedule shifts
- * @param periodStart ISO date
- * @param periodEnd ISO date
- * @returns Array of non-blocking warnings
- */
-export function analyzeScheduleWarningsV3(
-  config: SchedulerConfigV3,
-  employees: EmployeeV3[],
-  absences: EmployeeAbsenceV3[],
-  shifts: GeneratedShiftV3[],
-  periodStart: string,
-  periodEnd: string,
-): ScheduleWarningV3[] {
-  _warnIdCounter = 0;
+/** One pure analyzer for generated, edited and published candidates. */
+export function analyzeScheduleWarningsV3(config: SchedulerConfigV3, employees: EmployeeV3[], absences: EmployeeAbsenceV3[], shifts: GeneratedShiftV3[], periodStart: string, periodEnd: string): ScheduleWarningV3[] {
   const warnings: ScheduleWarningV3[] = [];
-  const empMap = new Map(employees.map((e) => [e.id, e]));
-  const policies = config.warningPolicies || {};
-
-  // 1. Coverage analysis
-  const templateMap = new Map(config.shiftTemplates.map((t) => [t.id, t]));
+  const add = (code: WarningCodeV3, message: string, fields: Partial<ScheduleWarningV3> = {}) => warnings.push({
+    ...fields, id: 'warning-' + String(warnings.length + 1).padStart(6, '0'), code, message, severity: 'WARNING', blocking: false,
+  });
+  const empMap = new Map(employees.map(e => [e.id, e]));
+  const ordered = [...shifts].sort((a,b) => {
+    const x = a.date + a.startTime + a.employeeId + a.id, y = b.date + b.startTime + b.employeeId + b.id;
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
   const dates = eachDateInRange(periodStart, periodEnd);
-
+  const policies = config.warningPolicies || {};
   for (const date of dates) {
-    const weekday = getWeekdayForDate(date);
-    const dayConfig = config.operatingDays.find((d) => d.weekday === weekday);
-    if (!dayConfig || !dayConfig.isOpen) continue;
-
-    const coverage = config.coverageRequirements.find((c) => c.weekday === weekday);
-    if (!coverage) continue;
-
-    for (const slot of coverage.slots) {
-      const assigned = shifts.filter(
-        (s) => s.date === date && s.shiftTemplateId === slot.shiftTemplateId,
-      ).length;
-      if (assigned < slot.headcount) {
-        warnings.push(makeWarning(
-          'COVERAGE_UNDER_TARGET', 'WARNING',
-          `Ελλιπής κάλυψη: ${assigned}/${slot.headcount} εργαζόμενοι (${date}).`,
-          { date, details: { shiftTemplateId: slot.shiftTemplateId, assigned, required: slot.headcount } },
-        ));
-      } else if (assigned > slot.headcount) {
-        warnings.push(makeWarning(
-          'COVERAGE_OVER_TARGET', 'INFO',
-          `Υπερκάλυψη: ${assigned}/${slot.headcount} εργαζόμενοι (${date}).`,
-          { date, details: { shiftTemplateId: slot.shiftTemplateId, assigned, required: slot.headcount } },
-        ));
-      }
+    const day = config.operatingDays.find(d => d.weekday === getWeekdayForDate(date));
+    if (!day?.isOpen) continue;
+    for (const slot of config.coverageRequirements.find(c => c.weekday === day.weekday)?.slots || []) {
+      if (config.shiftTemplates.find(t => t.id === slot.shiftTemplateId)?.isActive === false) continue;
+      const assigned = ordered.filter(s => s.date === date && s.shiftTemplateId === slot.shiftTemplateId).length;
+      if (assigned !== slot.headcount) add(assigned < slot.headcount ? 'COVERAGE_UNDER_TARGET' : 'COVERAGE_OVER_TARGET',
+        'Κάλυψη ' + assigned + '/' + slot.headcount + ' στις ' + date, { date, details: { shiftTemplateId: slot.shiftTemplateId, assigned, required: slot.headcount } });
     }
   }
-
-  // Per-employee analyses
-  for (const shift of shifts) {
-    const emp = empMap.get(shift.employeeId);
-
-    // 2. Fixed day off override
-    if (emp && isFixedDayOff(shift.date, emp.schedulerV3.fixedDayOff)) {
-      warnings.push(makeWarning(
-        'FIXED_DAY_OFF_OVERRIDE', 'WARNING',
-        `Ο ${emp.fullName} εργάζεται στη σταθερή ημέρα ανάπαυσής του (${shift.date}).`,
-        { date: shift.date, employeeId: shift.employeeId },
-      ));
+  for (const shift of ordered) {
+    const employee = empMap.get(shift.employeeId);
+    const fields = { date: shift.date, employeeId: shift.employeeId, shiftId: shift.id };
+    if (!employee?.isActive) add('DEACTIVATED_EMPLOYEE_REFERENCE', 'Αναφορά σε ανενεργό ή μη διαθέσιμο εργαζόμενο.', fields);
+    if (employee && isFixedDayOff(shift.date, employee.schedulerV3.fixedDayOff)) add('FIXED_DAY_OFF_OVERRIDE', 'Εργασία σε σταθερό ρεπό.', fields);
+    if (absences.some(a => a.employeeId === shift.employeeId && a.startDate <= shift.date && a.endDate >= shift.date)) add('ABSENCE_OVERRIDE', 'Εργασία σε ημέρα απουσίας.', fields);
+    if (employee?.schedulerV3.workMode === 'SUBSTITUTE_ONLY' && shift.source === 'MANUAL') add('SUBSTITUTE_MANUAL_ASSIGNMENT', 'Χειροκίνητη ανάθεση αναπληρωματικού.', fields);
+    if (employee) {
+      const effective = resolveEffectiveStandardShift(employee.schedulerV3, shift.date);
+      if (effective && shift.shiftTemplateId !== effective) add('STANDARD_SHIFT_DEVIATION', 'Απόκλιση από την τυπική βάρδια.', fields);
     }
-
-    // 3. Absence override
-    const hasAbsence = absences.some(
-      (a) =>
-        a.employeeId === shift.employeeId &&
-        shift.date >= a.startDate &&
-        shift.date <= a.endDate &&
-        a.scope === 'FULL_DAY',
-    );
-    if (hasAbsence) {
-      warnings.push(makeWarning(
-        'ABSENCE_OVERRIDE', 'WARNING',
-        `Ο ${emp?.fullName || shift.employeeName} εργάζεται ενώ έχει άδεια (${shift.date}).`,
-        { date: shift.date, employeeId: shift.employeeId },
-      ));
-    }
-
-    // 4. Outside operating window
-    if (shift.shiftTemplateId) {
-      const weekday = getWeekdayForDate(shift.date);
-      const dayConfig = config.operatingDays.find((d) => d.weekday === weekday);
-      if (dayConfig && dayConfig.isOpen && dayConfig.windows.length > 0) {
-        const shiftStart = timeToMinutesV3(shift.startTime);
-        const shiftEnd = timeToMinutesV3(shift.endTime);
-        const inWindow = dayConfig.windows.some((w) => {
-          const wStart = timeToMinutesV3(w.openTime);
-          const wEnd = timeToMinutesV3(w.closeTime);
-          if (w.crossMidnight) return true; // simplified for cross-midnight
-          return shiftStart >= wStart && shiftEnd <= wEnd;
-        });
-        if (!inWindow) {
-          warnings.push(makeWarning(
-            'OUTSIDE_OPERATING_WINDOW', 'WARNING',
-            `Βάρδια εκτός ωραρίου λειτουργίας (${shift.date}, ${shift.startTime}-${shift.endTime}).`,
-            { date: shift.date, employeeId: shift.employeeId, shiftId: shift.id },
-          ));
-        }
-      }
-    }
-
-    // 5. Substitute-only employee assignment
-    if (emp && emp.schedulerV3.workMode === 'SUBSTITUTE_ONLY' && shift.source === 'MANUAL') {
-      warnings.push(makeWarning(
-        'SUBSTITUTE_MANUAL_ASSIGNMENT', 'INFO',
-        `Ο ${emp.fullName} είναι μόνο αναπληρωματικός και ανατέθηκε χειροκίνητα (${shift.date}).`,
-        { date: shift.date, employeeId: shift.employeeId },
-      ));
-    }
-
-    // 6. Deactivated employee reference
-    if (emp && !emp.isActive) {
-      warnings.push(makeWarning(
-        'DEACTIVATED_EMPLOYEE_REFERENCE', 'WARNING',
-        `Αναφορά σε ανενεργό εργαζόμενο: ${emp.fullName} (${shift.date}).`,
-        { date: shift.date, employeeId: shift.employeeId },
-      ));
-    }
+    const interval = shiftIntervalV3(shift.date, shift.startTime, shift.endTime, Boolean(shift.crossMidnight));
+    const day = config.operatingDays.find(d => d.weekday === getWeekdayForDate(shift.date));
+    const fits = day?.isOpen && day.windows.some(w => {
+      const window = shiftIntervalV3(shift.date, w.openTime, w.closeTime, Boolean(w.crossMidnight));
+      return interval.start >= window.start && interval.end <= window.end;
+    });
+    if (!fits) add('OUTSIDE_OPERATING_WINDOW', 'Βάρδια εκτός ωραρίου λειτουργίας.', fields);
   }
-
-  // 7. Shift overlaps (per employee, per date)
-  const shiftsByEmployeeDate = new Map<string, GeneratedShiftV3[]>();
-  for (const shift of shifts) {
-    const key = `${shift.employeeId}:${shift.date}`;
-    if (!shiftsByEmployeeDate.has(key)) shiftsByEmployeeDate.set(key, []);
-    shiftsByEmployeeDate.get(key)!.push(shift);
-  }
-  for (const [key, dayShifts] of shiftsByEmployeeDate) {
-    if (dayShifts.length < 2) continue;
-    const sorted = [...dayShifts].sort((a, b) =>
-      a.startTime < b.startTime ? -1 : a.startTime > b.startTime ? 1 : 0,
-    );
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const endMin = timeToMinutesV3(sorted[i].endTime);
-      const nextStartMin = timeToMinutesV3(sorted[i + 1].startTime);
-      if (endMin > nextStartMin) {
-        const emp = empMap.get(sorted[i].employeeId);
-        warnings.push(makeWarning(
-          'SHIFT_OVERLAP', 'WARNING',
-          `Αλληλεπικαλυπτόμενες βάρδιες για ${emp?.fullName || sorted[i].employeeName} (${sorted[i].date}).`,
-          { date: sorted[i].date, employeeId: sorted[i].employeeId },
-        ));
-      }
+  const weeks = [...new Set(dates.map(d => getWeekStartV3(d, config.weekStartDay)))].sort();
+  for (const employee of [...employees].sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) {
+    const profile = employee.schedulerV3;
+    if (profile.rotateStandardShiftWeekly && (!profile.standardShiftTemplateId || !profile.rotationAlternateShiftTemplateId || !profile.rotationAnchorWeekStart ||
+      !config.shiftTemplates.some(t => t.id === profile.standardShiftTemplateId) || !config.shiftTemplates.some(t => t.id === profile.rotationAlternateShiftTemplateId))) {
+      add('ROTATION_CONFIGURATION_WARNING', 'Η εβδομαδιαία εναλλαγή χρειάζεται δύο πρότυπα και εβδομάδα αναφοράς.', { employeeId: employee.id });
     }
-  }
-
-  // 8. Rest interval (between consecutive days)
-  if (policies.minRestIntervalHours && policies.minRestIntervalHours > 0) {
-    const minRestMin = policies.minRestIntervalHours * 60;
-    const employeeIds = [...new Set(shifts.map((s) => s.employeeId))];
-    for (const eid of employeeIds) {
-      const empShifts = shifts
-        .filter((s) => s.employeeId === eid)
-        .sort((a, b) => {
-          if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-          return a.startTime < b.startTime ? -1 : 1;
-        });
-      for (let i = 0; i < empShifts.length - 1; i++) {
-        const curr = empShifts[i];
-        const next = empShifts[i + 1];
-        if (curr.date === next.date) continue; // same day — overlap check already done
-        const currEnd = timeToMinutesV3(curr.endTime);
-        const nextStart = timeToMinutesV3(next.startTime);
-        // Days between
-        const d1 = new Date(curr.date + 'T00:00:00Z');
-        const d2 = new Date(next.date + 'T00:00:00Z');
-        const daysDiff = Math.round((d2.getTime() - d1.getTime()) / (24 * 60 * 60 * 1000));
-        if (daysDiff === 1) {
-          const restMin = (24 * 60 - currEnd) + nextStart;
-          if (restMin < minRestMin) {
-            const emp = empMap.get(eid);
-            warnings.push(makeWarning(
-              'REST_INTERVAL_WARNING', 'WARNING',
-              `Ανεπαρκής ανάπαυση (${(restMin / 60).toFixed(1)}h) για ${emp?.fullName || eid} μεταξύ ${curr.date} και ${next.date}.`,
-              { date: next.date, employeeId: eid, details: { restHours: Math.round(restMin / 60 * 4) / 4 } },
-            ));
-          }
-        }
-      }
+    const list = ordered.filter(s => s.employeeId === employee.id);
+    for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) {
+      const x = shiftIntervalV3(list[a].date, list[a].startTime, list[a].endTime, Boolean(list[a].crossMidnight));
+      const y = shiftIntervalV3(list[b].date, list[b].startTime, list[b].endTime, Boolean(list[b].crossMidnight));
+      if (x.start < y.end && y.start < x.end) add('SHIFT_OVERLAP', 'Αλληλεπικαλυπτόμενες βάρδιες.', { employeeId: employee.id, date: list[b].date });
+      else if (policies.minRestIntervalHours && (y.start - x.end) / 3600000 < policies.minRestIntervalHours) add('REST_INTERVAL_WARNING', 'Ανεπαρκής ανάπαυση μεταξύ βαρδιών.', { employeeId: employee.id, date: list[b].date });
     }
-  }
-
-  // 9. Consecutive working days
-  if (policies.maxConsecutiveWorkingDays && policies.maxConsecutiveWorkingDays > 0) {
-    const maxConsec = policies.maxConsecutiveWorkingDays;
-    const employeeIds = [...new Set(shifts.map((s) => s.employeeId))];
-    for (const eid of employeeIds) {
-      const workDates = [...new Set(shifts.filter((s) => s.employeeId === eid).map((s) => s.date))].sort();
-      let consecutive = 1;
-      for (let i = 1; i < workDates.length; i++) {
-        const prev = new Date(workDates[i - 1] + 'T00:00:00Z');
-        const curr = new Date(workDates[i] + 'T00:00:00Z');
-        const diff = Math.round((curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000));
-        if (diff === 1) {
-          consecutive++;
-          if (consecutive > maxConsec) {
-            const emp = empMap.get(eid);
-            warnings.push(makeWarning(
-              'CONSECUTIVE_DAYS_WARNING', 'WARNING',
-              `${emp?.fullName || eid}: ${consecutive} συνεχόμενες ημέρες εργασίας (μέγιστο: ${maxConsec}).`,
-              { date: workDates[i], employeeId: eid },
-            ));
-          }
-        } else {
-          consecutive = 1;
-        }
-      }
-    }
-  }
-
-  // 10. Weekly hours
-  if (policies.maxWeeklyHours && policies.maxWeeklyHours > 0) {
-    const maxWeekly = policies.maxWeeklyHours;
-    const employeeIds = [...new Set(shifts.map((s) => s.employeeId))];
-    const weekStarts = new Set<string>();
+    let streak = 0;
     for (const date of dates) {
-      weekStarts.add(getMondayOfWeek(date));
+      const daily = list.filter(s => s.date === date);
+      streak = daily.length ? streak + 1 : 0;
+      if (policies.maxConsecutiveWorkingDays && streak > policies.maxConsecutiveWorkingDays) add('CONSECUTIVE_DAYS_WARNING', 'Πολλές συνεχόμενες ημέρες εργασίας.', { employeeId: employee.id, date });
+      if (policies.maxDailyHours && daily.reduce((h,s) => h + s.durationHours, 0) > policies.maxDailyHours) add('DAILY_HOURS_WARNING', 'Υπέρβαση ημερήσιων ωρών.', { employeeId: employee.id, date });
     }
-    for (const eid of employeeIds) {
-      for (const ws of weekStarts) {
-        const weEnd = new Date(ws + 'T00:00:00Z');
-        weEnd.setUTCDate(weEnd.getUTCDate() + 6);
-        const weekEnd = weEnd.toISOString().slice(0, 10);
-        const hours = shifts
-          .filter((s) => s.employeeId === eid && s.date >= ws && s.date <= weekEnd)
-          .reduce((sum, s) => sum + s.durationHours, 0);
-        if (hours > maxWeekly) {
-          const emp = empMap.get(eid);
-          warnings.push(makeWarning(
-            'WEEKLY_HOURS_WARNING', 'WARNING',
-            `${emp?.fullName || eid}: ${hours.toFixed(1)}h σε εβδομάδα ${ws} (μέγιστο: ${maxWeekly}h).`,
-            { employeeId: eid, details: { hours, maxWeeklyHours: maxWeekly, weekStart: ws } },
-          ));
-        }
-      }
+    for (const weekStart of weeks) {
+      const hours = list.filter(s => getWeekStartV3(s.date, config.weekStartDay) === weekStart).reduce((h,s) => h + s.durationHours, 0);
+      const target = profile.targetWeeklyHours;
+      if (employee.isActive && target !== null && hours !== target) add(hours < target ? 'TARGET_HOURS_UNDER' : 'TARGET_HOURS_OVER', 'Ώρες ' + hours + ' / στόχος ' + target, { employeeId: employee.id, details: { hours, target, weekStart } });
+      if (policies.maxWeeklyHours && hours > policies.maxWeeklyHours) add('WEEKLY_HOURS_WARNING', 'Υπέρβαση εβδομαδιαίων ωρών.', { employeeId: employee.id, details: { hours, weekStart } });
     }
   }
-
-  // 11. Daily hours
-  if (policies.maxDailyHours && policies.maxDailyHours > 0) {
-    const maxDaily = policies.maxDailyHours;
-    for (const [key, dayShifts] of shiftsByEmployeeDate) {
-      const totalHours = dayShifts.reduce((sum, s) => sum + s.durationHours, 0);
-      if (totalHours > maxDaily) {
-        const [eid, date] = key.split(':');
-        const emp = empMap.get(eid);
-        warnings.push(makeWarning(
-          'DAILY_HOURS_WARNING', 'WARNING',
-          `${emp?.fullName || eid}: ${totalHours.toFixed(1)}h στις ${date} (μέγιστο: ${maxDaily}h).`,
-          { date, employeeId: eid },
-        ));
-      }
-    }
-  }
-
   return warnings;
 }

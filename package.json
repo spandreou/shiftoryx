@@ -10,6 +10,7 @@
     "qa:scheduler": "node scripts/run-validate-scheduler-rules.mjs && node scripts/test-new-employee-scheduler-regression.mjs && npm run build",
     "test:new-employee-scheduler": "node scripts/test-new-employee-scheduler-regression.mjs",
     "test:scheduler-contract-v2": "node scripts/test-scheduler-contract-v2.mjs",
+    "test:scheduler-contract-v3": "node scripts/test-scheduler-contract-v3.mjs && node scripts/test-scheduler-v3-services.mjs",
     "qa:export-security": "node scripts/validate-export-audit-security.mjs",
     "qa:public-readonly": "node scripts/validate-public-readonly.mjs",
     "qa:tenant-authorization": "node scripts/validate-tenant-authorization.mjs",

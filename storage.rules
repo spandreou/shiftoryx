@@ -37,6 +37,12 @@ service firebase.storage {
         request.resource.contentType == 'application/pdf';
     }
 
+    match /tenants/{tenantId}/schedule-publications/{publicationId}/schedule.pdf {
+      allow read: if isTenantAdmin(tenantId);
+      allow write: if isTenantAdmin(tenantId) && resource == null && request.resource != null &&
+        publicationId.matches('^[a-zA-Z0-9_-]{1,100}$') && request.resource.size < 10 * 1024 * 1024 && request.resource.contentType == 'application/pdf' &&
+        firestore.exists(/databases/(default)/documents/tenants/$(tenantId)/schedulePublicationReservations/$(publicationId));
+    }
     match /{allPaths=**} {
       allow read, write: if false;
     }

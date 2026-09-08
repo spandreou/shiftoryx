@@ -16,6 +16,9 @@ import AnnouncementBoard from './AnnouncementBoard';
 import AnalyticsPanel from './AnalyticsPanel';
 import ProgramHistoryPanel from './ProgramHistoryPanel';
 import SchedulingRulesPanel from './SchedulingRulesPanel';
+import SchedulerWorkspaceV3, { SchedulerSetupV3 } from './SchedulerWorkspaceV3';
+import { isSchedulerV3Active } from '../../services/schedulerV3Service.ts';
+import { validateSchedulerConfigV3 } from '../../scheduler-engine-v3/config.ts';
 import SchedulerSidebar from './SchedulerSidebar';
 import SpecialDaysPanel from './SpecialDaysPanel';
 import UndoSnackbar from './UndoSnackbar';
@@ -247,6 +250,8 @@ function MessageBanner({
 }
 
 export default function MainDashboard() {
+  const configV3 = useSchedulerStore(state => state.schedulerConfigV3);
+  const versionV3 = useSchedulerStore(state => state.schedulerSchemaVersion);
   const [activeDragItem, setActiveDragItem] = useState(null);
   const [profileEmployee, setProfileEmployee] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1399,6 +1404,11 @@ export default function MainDashboard() {
     return <p className="p-8 text-center font-medium text-slate-900 dark:text-slate-100">Φόρτωση προγράμματος...</p>;
   }
 
+  const v3Active = isAdmin && isSchedulerV3Active(import.meta.env.VITE_ENABLE_SCHEDULER_V3, versionV3);
+  const v3Workspace = v3Active ? (validateSchedulerConfigV3(configV3).valid
+    ? <SchedulerWorkspaceV3 key={`${configV3.tenantId}:${adminUser?.uid}`} config={configV3} employees={employees} absences={absences} uid={adminUser?.uid} onLogout={handleLogoutAdmin} />
+    : <p role="alert">Οι ρυθμίσεις V3 δεν είναι έγκυρες. Χρειάζεται διόρθωση πριν τη δημιουργία προγράμματος.</p>) : null;
+
   const dashboardContent = (
     <>
       <main className={`scheduler-layout-shell mx-auto flex w-full ${shellWidthClass} flex-col gap-4 px-3 py-4 text-slate-900 sm:gap-5 sm:px-4 lg:px-5 xl:w-[calc(100%-24px)] 2xl:px-6 dark:text-slate-100`}>
@@ -1592,6 +1602,7 @@ export default function MainDashboard() {
 
               {isAdmin ? (
                 <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
+                  {import.meta.env.VITE_ENABLE_SCHEDULER_V3 === 'true' && !v3Active && <SchedulerSetupV3 tenantId={getCurrentTenantHostContext().tenantSlug} employees={employees} />}
                   <SchedulingRulesPanel
                     isAdmin={isAdmin}
                     isSaving={isSaving}
@@ -1805,13 +1816,15 @@ export default function MainDashboard() {
     return dashboardContent;
   }
 
-  return (
+  const legacyTools = (
     <Suspense fallback={dashboardContent}>
       <AdminDndShell onDragStart={handleDragStart} onDragEnd={handleDragEnd} activeDragItem={activeDragItem}>
         {dashboardContent}
       </AdminDndShell>
     </Suspense>
   );
+  if (v3Active) return <>{v3Workspace}<details className="mx-auto max-w-6xl rounded border p-4"><summary>Προηγούμενα προγράμματα και εργαλεία</summary><p>Ιστορικό, εξαγωγές και εργαλεία V2. Οι αλλαγές εδώ αφορούν τα προηγούμενα προγράμματα, όχι το ανοιχτό προσχέδιο V3.</p>{legacyTools}</details></>;
+  return legacyTools;
 }
 
 

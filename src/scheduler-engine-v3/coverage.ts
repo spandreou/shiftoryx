@@ -17,6 +17,7 @@ import type {
   ShiftTemplateV3,
   Weekday,
 } from './types.ts';
+import { isIsoDateV3 } from './config.ts';
 
 export type ExpandedCoverageSlot = {
   date: string;
@@ -44,6 +45,7 @@ export function getWeekdayForDate(dateStr: string): Weekday {
  * Generate all dates in [startDate, endDate] inclusive.
  */
 export function eachDateInRange(startDate: string, endDate: string): string[] {
+  if (!isIsoDateV3(startDate) || !isIsoDateV3(endDate) || startDate > endDate || Date.parse(endDate) - Date.parse(startDate) > 366 * 86400000) throw new Error('Μη έγκυρη περίοδος προγραμματισμού.');
   const dates: string[] = [];
   const current = new Date(startDate + 'T00:00:00Z');
   const end = new Date(endDate + 'T00:00:00Z');

@@ -230,3 +230,28 @@ No permanent public URL. Download through authorized Firebase Storage SDK.
 - No cross-tenant access
 - Employee snapshots exclude private fields
 - No secrets in warning details or audit logs
+
+## 9. Implemented Integration And Verification (8 September 2026)
+
+- Activation requires `VITE_ENABLE_SCHEDULER_V3=true` and tenant settings `schedulerSchemaVersion: 3`. The default is off. Repository operations also enforce the global flag. Existing broker/gate flags are unchanged.
+- V3 settings and employee profiles are saved atomically. The V3 workspace includes employee creation/deactivation and the existing absence editor.
+- The primary scheduling workspace is V3. A separate disclosure retains previous schedules, exports and tools; legacy public refresh/month-clear actions are gated for a V3 tenant and cannot replace the new publication projections.
+- Drafts use `shifts` with `schedulerSchemaVersion: 3` and `draftId`, plus private `scheduleDrafts` metadata. Revision checks reject stale saves. Reads reconstruct one consistent transaction snapshot. Legacy bulk reads/clear operations exclude V3 draft rows.
+- Publication version reservation is transactional and bound to the publication ID. PDF upload precedes publication visibility. Snapshot, latest-period pointer and intersecting public week/month projections commit together. Published snapshots and PDFs deny overwrite/delete.
+- Public projections contain only display names, dates, times, work labels and non-sensitive V3/cross-midnight markers; internal IDs, warning details and profile data stay private. Public overnight analytics use the explicit V3 marker.
+- `previewV2Migration` is an offline preview function. Role/skill demand, replacement strategies, special dates and special Sunday policies are reported for owner review rather than silently migrated. It performs no writes.
+- `npm run test:scheduler-contract-v3`: 304 engine cases and 17 service cases. The service cases include real PDF generation, privacy allowlists and publication failure ordering.
+- V2 contract suite: 2,118 assertions unchanged. Browser coverage: three existing V2 tests plus V3 mobile and desktop tests. Emulator coverage exercises the actual V3 repository, concurrent reservations, draft roundtrips, stale saves, immutable snapshot/PDF denial and tenant/identity boundaries.
+
+Technical limits and follow-up before production activation:
+
+- Draft writes are bounded to one Firestore transaction (450 operations). Oversized drafts fail explicitly rather than partially saving.
+- Failed PDF/finalization attempts can leave an unused reserved version or an unreferenced immutable PDF. No publication pointer is exposed on upload failure; abandoned artifacts require a separately approved cleanup policy.
+- Time calculations use dated civil-clock intervals. IANA timezone/DST elapsed-hour conversion is not implemented.
+- The separate lifecycle branch's 152-case script is absent from this branch and was not cherry-picked. V3 lifecycle behavior has its own tests; the independent branch is preserved.
+- Vite transpilation/build is not TypeScript type checking. No standalone TypeScript compiler was installed.
+- No production activation, Rules deployment, migration, DNS change or PR merge is part of this work.
+
+Partial-day absences currently have no time bounds and conservatively exclude their full date from automatic assignment. V2 break-adjusted durations require review during preview migration because V3 templates represent gross time spans.
+
+Emulator testing uses `scripts/run-scheduler-v3-emulator.mjs` inside Firebase `emulators:exec` for demo project `demo-shiftoryx-v3`. Run the emulator from a temporary directory with a config referencing this checkout's Rules; debug logs must remain outside the checkout.

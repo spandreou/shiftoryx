@@ -65,7 +65,7 @@ service cloud.firestore {
 
     function employeeFields() {
       return [
-        'fullName', 'role', 'color', 'afm', 'phone', 'email', 'hireDate', 'isActive',
+        'fullName', 'role', 'color', 'afm', 'phone', 'email', 'hireDate', 'isActive', 'schedulerV3',
         'scheduleRole', 'roleType', 'fixedDayOff', 'fixedDaysOff', 'defaultShiftPreference',
         'participatesInRotation', 'participatesInSundayRotation', 'weeklyFixedShiftSideRotation',
         'fixedStartTime', 'fixedEndTime', 'staticStartTime', 'staticEndTime',
@@ -97,6 +97,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly(employeeFields()) &&
         request.resource.data.fullName is string &&
         request.resource.data.fullName.size() > 0 &&
+        (!('schedulerV3' in request.resource.data) || validEmployeeProfileV3(request.resource.data.schedulerV3)) &&
         isOptionalString('role') &&
         isOptionalString('color') &&
         isOptionalString('afm') &&
@@ -119,6 +120,18 @@ service cloud.firestore {
         isOptionalBool('canWorkAfternoon') &&
         isOptionalBool('canWorkSunday') &&
         isOptionalIntOrNull('fixedDayOff');
+    }
+
+    function validEmployeeProfileV3(p) {
+      return p is map && p.keys().hasOnly(['workMode','fixedDayOff','targetWeeklyHours','standardShiftTemplateId','rotateStandardShiftWeekly','rotationAlternateShiftTemplateId','rotationAnchorWeekStart']) &&
+        p.workMode in ['NORMAL','SUBSTITUTE_ONLY'] && (p.fixedDayOff == null || (p.fixedDayOff is int && p.fixedDayOff >= 0 && p.fixedDayOff <= 6)) &&
+        (p.targetWeeklyHours == null || (p.targetWeeklyHours is number && p.targetWeeklyHours >= 0 && p.targetWeeklyHours <= 168)) && p.rotateStandardShiftWeekly is bool;
+    }
+    function validDraftShiftV3() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id','date','employeeId','employeeName','shiftTemplateId','startTime','endTime','durationHours','crossMidnight','source','isManualOverride','schedulerSchemaVersion','draftId','type']) &&
+        d.schedulerSchemaVersion == 3 && d.draftId is string && d.draftId.matches('^[a-zA-Z0-9_-]{1,100}$') && d.employeeId is string && isIsoDate(d.date) && isTime(d.startTime) && isTime(d.endTime) &&
+        d.durationHours is number && d.durationHours > 0 && d.durationHours <= 24 && d.source in ['AUTO','MANUAL'] && d.type == 'work';
     }
 
     function validPublicEmployee() {
@@ -261,11 +274,13 @@ service cloud.firestore {
     }
 
     function settingsFields() {
-      return ['generatorRules', 'schedulerConfigV2', 'specialDaysByDate', 'createdAt', 'updatedAt'];
+      return ['generatorRules', 'schedulerConfigV2', 'schedulerConfigV3', 'schedulerSchemaVersion', 'specialDaysByDate', 'createdAt', 'updatedAt'];
     }
 
     function validSchedulerSettings() {
       return request.resource.data.keys().hasOnly(settingsFields()) &&
+        (!('schedulerSchemaVersion' in request.resource.data) || request.resource.data.schedulerSchemaVersion in [2,3]) &&
+        (!('schedulerConfigV3' in request.resource.data) || (request.resource.data.schedulerConfigV3 is map && request.resource.data.schedulerConfigV3.schemaVersion == 3)) &&
         (!( 'generatorRules' in request.resource.data) || request.resource.data.generatorRules is map) &&
         (!( 'schedulerConfigV2' in request.resource.data) || request.resource.data.schedulerConfigV2 is map) &&
         (!( 'specialDaysByDate' in request.resource.data) || request.resource.data.specialDaysByDate is map);
@@ -621,8 +636,8 @@ service cloud.firestore {
 
       match /shifts/{shiftId} {
         allow read: if isTenantAdmin(tenantId);
-        allow create: if isTenantAdmin(tenantId) && validShift();
-        allow update: if isTenantAdmin(tenantId) && onlyChanged(shiftFields()) && validShift();
+        allow create: if isTenantAdmin(tenantId) && (validShift() || validDraftShiftV3());
+        allow update: if isTenantAdmin(tenantId) && ((onlyChanged(shiftFields()) && validShift()) || (resource.data.schedulerSchemaVersion == 3 && validDraftShiftV3()));
         allow delete: if isTenantAdmin(tenantId);
       }
 
@@ -655,6 +670,39 @@ service cloud.firestore {
         allow read: if isTenantAdmin(tenantId);
         allow create, update: if isTenantAdmin(tenantId) && validSchedulerSettings();
         allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /scheduleDrafts/{draftId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update: if isTenantAdmin(tenantId) && request.resource.data.tenantId == tenantId && request.resource.data.schemaVersion == 3 && request.resource.data.id == draftId && request.resource.data.config.tenantId == tenantId && request.resource.data.updatedBy == request.auth.uid;
+        allow delete: if false;
+      }
+      match /schedulePublicationCounters/{periodKey} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if isTenantAdmin(tenantId) && request.resource.data.keys().hasOnly(['tenantId','version','lastReservedId']) && request.resource.data.tenantId == tenantId && request.resource.data.lastReservedId is string && request.resource.data.version == 1;
+        allow update: if isTenantAdmin(tenantId) && request.resource.data.keys().hasOnly(['tenantId','version','lastReservedId']) && request.resource.data.tenantId == tenantId && request.resource.data.lastReservedId is string && request.resource.data.version == resource.data.version + 1;
+        allow delete: if false;
+      }
+      match /schedulePublicationReservations/{publicationId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if isTenantAdmin(tenantId) && request.resource.data.keys().hasOnly(['tenantId','periodKey','version','publishedByUid']) && request.resource.data.tenantId == tenantId && request.resource.data.publishedByUid == request.auth.uid && request.resource.data.version == getAfter(/databases/$(database)/documents/tenants/$(tenantId)/schedulePublicationCounters/$(request.resource.data.periodKey)).data.version && publicationId == getAfter(/databases/$(database)/documents/tenants/$(tenantId)/schedulePublicationCounters/$(request.resource.data.periodKey)).data.lastReservedId;
+        allow update, delete: if false;
+      }
+      match /schedulePublications/{publicationId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if isTenantAdmin(tenantId) && request.resource.data.keys().hasOnly(['id','tenantId','schemaVersion','periodType','periodStart','periodEnd','periodKey','version','sourceDraftId','sourcePublicationId','templateSnapshot','employeeSnapshot','shifts','calculatedHours','warningsAtPublish','publishedWithWarnings','pdfStoragePath','pdfGeneratedAt','publishedAt','publishedByUid']) &&
+          request.resource.data.id == publicationId && request.resource.data.tenantId == tenantId && request.resource.data.schemaVersion == 3 && request.resource.data.templateSnapshot.tenantId == tenantId && request.resource.data.publishedByUid == request.auth.uid && request.resource.data.periodType in ['WEEK','MONTH'] &&
+          request.resource.data.pdfStoragePath == 'tenants/' + tenantId + '/schedule-publications/' + publicationId + '/schedule.pdf' &&
+          request.resource.data.version == get(/databases/$(database)/documents/tenants/$(tenantId)/schedulePublicationReservations/$(publicationId)).data.version &&
+          request.resource.data.periodKey == get(/databases/$(database)/documents/tenants/$(tenantId)/schedulePublicationReservations/$(publicationId)).data.periodKey;
+        allow update, delete: if false;
+      }
+      match /schedulePublicationPeriods/{periodKey} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update: if isTenantAdmin(tenantId) && request.resource.data.keys().hasOnly(['tenantId','periodKey','latestVersion','latestPublicationId','updatedAt']) && request.resource.data.tenantId == tenantId && request.resource.data.periodKey == periodKey &&
+          request.resource.data.latestVersion == getAfter(/databases/$(database)/documents/tenants/$(tenantId)/schedulePublications/$(request.resource.data.latestPublicationId)).data.version &&
+          periodKey == getAfter(/databases/$(database)/documents/tenants/$(tenantId)/schedulePublications/$(request.resource.data.latestPublicationId)).data.periodKey;
+        allow delete: if false;
       }
 
       match /announcements/{announcementId} {

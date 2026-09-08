@@ -1,6 +1,16 @@
 import type { SchedulerConfigV3, ShiftTemplateV3 } from './types.ts';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const WEEKDAYS_V3 = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const;
+export function isIsoDateV3(value: string): boolean {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+export function shiftIntervalV3(date: string, start: string, end: string, cross = false) {
+  const midnight = Date.parse(`${date}T00:00:00Z`);
+  return { start: midnight + timeToMinutesV3(start) * 60000, end: midnight + (timeToMinutesV3(end) + (cross ? 1440 : 0)) * 60000 };
+}
 
 /**
  * Validates if a string is in HH:mm format.
@@ -56,7 +66,7 @@ export function validateShiftTemplateV3(template: unknown): { valid: boolean; er
   if (!template || typeof template !== 'object') {
     return { valid: false, errors: ['Το πρότυπο βάρδιας πρέπει να είναι αντικείμενο.'] };
   }
-  const t = template as any;
+  const t = template as Partial<ShiftTemplateV3>;
 
   if (!t.id || typeof t.id !== 'string') {
     errors.push('Το πρότυπο βάρδιας πρέπει να έχει ένα έγκυρο id (string).');
@@ -76,9 +86,14 @@ export function validateShiftTemplateV3(template: unknown): { valid: boolean; er
     errors.push('Μη έγκυρη μορφή ώρας λήξης. Πρέπει να είναι HH:mm.');
   }
 
-  if (typeof t.durationHours !== 'number' || t.durationHours <= 0) {
+  if (!Number.isFinite(t.durationHours) || t.durationHours <= 0 || t.durationHours > 24) {
     errors.push('Η διάρκεια της βάρδιας πρέπει να είναι θετικός αριθμός μεγαλύτερος του μηδενός.');
   }
+
+  if (typeof t.crossMidnight !== 'boolean' || (isValidTimeV3(t.startTime) && isValidTimeV3(t.endTime) &&
+    (t.startTime === t.endTime || t.crossMidnight !== (t.endTime < t.startTime)))) errors.push('Μη έγκυρη διέλευση μεσονυχτίου.');
+  if (isValidTimeV3(t.startTime) && isValidTimeV3(t.endTime) && Math.abs(calculateShiftDurationHoursV3(t.startTime, t.endTime, t.crossMidnight) - t.durationHours) > 0.001) errors.push('Η διάρκεια δεν συμφωνεί με το ωράριο.');
+  if (!['MORNING', 'INTERMEDIATE', 'AFTERNOON', 'NIGHT', 'CUSTOM'].includes(t.shiftType)) errors.push('Μη έγκυρος τύπος βάρδιας.');
 
   return { valid: errors.length === 0, errors };
 }
@@ -95,6 +110,28 @@ export function validateSchedulerConfigV3(config: unknown): { valid: boolean; er
   }
   
   const c = config as any;
+  if (!c.generationDefaults || typeof c.generationDefaults.balanceWeeklyTargetsForMonth !== 'boolean') errors.push('Απαιτείται έγκυρη ρύθμιση εξισορρόπησης στόχων.');
+
+  // Structural guards precede all nested access, including data read from storage.
+  const object = (v: unknown): boolean => Boolean(v && typeof v === 'object' && !Array.isArray(v));
+  if (!Array.isArray(c.operatingDays) || c.operatingDays.some(d => !object(d) || !Array.isArray(d.windows) || d.windows.some(w => !object(w))) ||
+      !Array.isArray(c.shiftTemplates) || c.shiftTemplates.some(t => !object(t)) ||
+      !Array.isArray(c.coverageRequirements) || c.coverageRequirements.some(p => !object(p) || !Array.isArray(p.slots) || p.slots.some(s => !object(s)))) {
+    return { valid: false, errors: ['Μη έγκυρη δομή ρυθμίσεων.'] };
+  }
+  if (c.shiftTemplates.length > 50 || c.coverageRequirements.length > 7) errors.push('Υπέρβαση τεχνικού ορίου ρυθμίσεων.');
+  if (new Set(c.operatingDays.map(d => d.weekday)).size !== 7 || c.operatingDays.some(d => !WEEKDAYS_V3.includes(d.weekday) || typeof d.isOpen !== 'boolean' || d.windows.length > 8)) errors.push('Απαιτούνται επτά μοναδικές έγκυρες ημέρες.');
+  if (!Number.isInteger(c.weekStartDay)) errors.push('Το weekStartDay πρέπει να είναι ακέραιο.');
+  for (const d of c.operatingDays) for (const w of d.windows) {
+    if (w.openTime === w.closeTime || Boolean(w.crossMidnight) !== (w.closeTime < w.openTime)) errors.push('Μη έγκυρο crossMidnight ωραρίου λειτουργίας.');
+  }
+  for (const p of c.coverageRequirements) {
+    if (!WEEKDAYS_V3.includes(p.weekday) || new Set(p.slots.map(s => s.shiftTemplateId)).size !== p.slots.length) errors.push('Μη έγκυρη ή διπλή κάλυψη.');
+    for (const s of p.slots) if (Object.keys(s).some(k => !['shiftTemplateId', 'headcount'].includes(k)) || s.headcount > 100) errors.push('Η κάλυψη δέχεται μόνο πρότυπο και πλήθος έως 100.');
+  }
+  if (c.warningPolicies) for (const [key, value] of Object.entries(c.warningPolicies)) {
+    if (!['minRestIntervalHours','maxDailyHours','maxWeeklyHours','maxConsecutiveWorkingDays'].includes(key) || (value !== null && (!Number.isFinite(value) || Number(value) <= 0))) errors.push('Μη έγκυρη πολιτική προειδοποιήσεων.');
+  }
 
   if (c.schemaVersion !== 3) {
     errors.push('Η έκδοση σχήματος (schemaVersion) πρέπει να είναι 3.');

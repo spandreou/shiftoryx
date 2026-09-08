@@ -12,3 +12,5 @@ export * from './eligibility.ts';
 export * from './coverage.ts';
 export * from './generator.ts';
 export * from './warnings.ts';
+export * from './validation.ts';
+export * from './migration.ts';

@@ -65,7 +65,7 @@ export function validateEmployeeProfileV3(
   }
 
   if (profile.targetWeeklyHours !== null) {
-    if (typeof profile.targetWeeklyHours !== 'number' || profile.targetWeeklyHours < 0) {
+    if (!Number.isFinite(profile.targetWeeklyHours) || profile.targetWeeklyHours < 0 || profile.targetWeeklyHours > 168) {
       errors.push('Ο στόχος εβδομαδιαίων ωρών πρέπει να είναι μη αρνητικός αριθμός ή null.');
     }
   }
@@ -75,12 +75,7 @@ export function validateEmployeeProfileV3(
   }
 
   if (profile.rotateStandardShiftWeekly) {
-    if (!profile.standardShiftTemplateId) {
-      errors.push('Η εβδομαδιαία εναλλαγή απαιτεί ορισμό τυπικής βάρδιας.');
-    }
-    if (!profile.rotationAlternateShiftTemplateId) {
-      errors.push('Η εβδομαδιαία εναλλαγή απαιτεί ορισμό εναλλακτικής βάρδιας.');
-    }
+    // Missing rotation choices produce ROTATION_CONFIGURATION_WARNING; owners may save the draft.
     if (profile.rotationAlternateShiftTemplateId && !availableTemplateIds.has(profile.rotationAlternateShiftTemplateId)) {
       errors.push(`Μη έγκυρη αναφορά εναλλακτικής βάρδιας: ${profile.rotationAlternateShiftTemplateId}.`);
     }
