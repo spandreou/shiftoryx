@@ -8,6 +8,7 @@
 export * from './types.ts';
 export * from './config.ts';
 export * from './employeeProfile.ts';
+export * from './profileCompatibility.ts';
 export * from './eligibility.ts';
 export * from './coverage.ts';
 export * from './generator.ts';

@@ -1,6 +1,6 @@
 import type { EmployeeV3, GeneratedShiftV3, GenerateScheduleV3Input, GenerateScheduleV3Result, EmployeeHoursSummaryV3 } from './types.ts';
 import { evaluateEmployeeEligibilityV3 } from './eligibility.ts';
-import { resolveEffectiveStandardShift } from './employeeProfile.ts';
+import { resolveEffectiveStandardShift, sameShiftTimesV3 } from './employeeProfile.ts';
 import { expandCoverageSlots, calculateCoverageSummary } from './coverage.ts';
 import { analyzeScheduleWarningsV3, getWeekStartV3 } from './warnings.ts';
 import { assertV3Input } from './validation.ts';
@@ -38,7 +38,7 @@ export function generateScheduleV3(input:GenerateScheduleV3Input):GenerateSchedu
       const target=employee.schedulerV3.targetWeeklyHours;
       const worked=shifts.filter(s=>s.employeeId===employee.id&&s.date>=weekStart&&s.date<=weekEnd).reduce((sum,s)=>sum+s.durationHours,0);
       return {
-        standard:resolveEffectiveStandardShift(employee.schedulerV3,slot.date)===template.id?1:0,
+        standard:sameShiftTimesV3(resolveEffectiveStandardShift(employee.schedulerV3,slot.date),template)?1:0,
         deficit:options.balanceWeeklyTargets&&target!==null?target-worked:0,
         rotation:(active.indexOf(employee)-cursor+active.length)%active.length,
       };

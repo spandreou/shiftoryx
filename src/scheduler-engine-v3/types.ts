@@ -78,7 +78,10 @@ export type SchedulerConfigV3 = {
   templateVersion: number;
 };
 
-export type EmployeeSchedulingProfileV3 = {
+export type StandardShiftV3 = { startTime: string; endTime: string };
+
+/** Read-only compatibility shape; application writes use the versioned profile below. */
+export type LegacyEmployeeSchedulingProfileV3 = {
   workMode: WorkMode;
   fixedDayOff: number | null; // (0=Sunday..6=Saturday)
   targetWeeklyHours: number | null;
@@ -86,6 +89,17 @@ export type EmployeeSchedulingProfileV3 = {
   rotateStandardShiftWeekly: boolean;
   rotationAlternateShiftTemplateId: string | null;
   rotationAnchorWeekStart: string | null; // (YYYY-MM-DD)
+};
+
+export type EmployeeSchedulingProfileV3 = {
+  profileVersion: 2;
+  workMode: WorkMode;
+  fixedDayOff: number | null;
+  targetWeeklyHours: number | null;
+  standardShift: StandardShiftV3 | null;
+  rotateStandardShiftWeekly: boolean;
+  rotationAlternateShift: StandardShiftV3 | null;
+  rotationAnchorWeekStart: string | null;
 };
 
 export type EmployeeV3 = {
@@ -262,11 +276,12 @@ export type GenerateScheduleV3Result = {
 };
 
 export const DEFAULT_EMPLOYEE_PROFILE_V3: EmployeeSchedulingProfileV3 = {
+  profileVersion: 2,
   workMode: 'NORMAL',
   fixedDayOff: null,
   targetWeeklyHours: null,
-  standardShiftTemplateId: null,
+  standardShift: null,
   rotateStandardShiftWeekly: false,
-  rotationAlternateShiftTemplateId: null,
+  rotationAlternateShift: null,
   rotationAnchorWeekStart: null,
 };

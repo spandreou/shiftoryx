@@ -1,6 +1,6 @@
 import type { EmployeeV3, EmployeeAbsenceV3, GeneratedShiftV3, SchedulerConfigV3, ScheduleWarningV3, WarningCodeV3 } from './types.ts';
 import { shiftIntervalV3 } from './config.ts';
-import { isFixedDayOff, resolveEffectiveStandardShift } from './employeeProfile.ts';
+import { isFixedDayOff, resolveEffectiveStandardShift, sameShiftTimesV3, validateEmployeeProfileV3 } from './employeeProfile.ts';
 import { eachDateInRange, getWeekdayForDate } from './coverage.ts';
 
 export function getWeekStartV3(date: string, weekStartDay = 1): string {
@@ -41,7 +41,7 @@ export function analyzeScheduleWarningsV3(config: SchedulerConfigV3, employees: 
     if (employee?.schedulerV3.workMode === 'SUBSTITUTE_ONLY' && shift.source === 'MANUAL') add('SUBSTITUTE_MANUAL_ASSIGNMENT', 'Χειροκίνητη ανάθεση αναπληρωματικού.', fields);
     if (employee) {
       const effective = resolveEffectiveStandardShift(employee.schedulerV3, shift.date);
-      if (effective && shift.shiftTemplateId !== effective) add('STANDARD_SHIFT_DEVIATION', 'Απόκλιση από την τυπική βάρδια.', fields);
+      if (effective && !sameShiftTimesV3(effective, shift)) add('STANDARD_SHIFT_DEVIATION', 'Απόκλιση από την τυπική βάρδια.', fields);
     }
     const interval = shiftIntervalV3(shift.date, shift.startTime, shift.endTime, Boolean(shift.crossMidnight));
     const day = config.operatingDays.find(d => d.weekday === getWeekdayForDate(shift.date));
@@ -54,9 +54,8 @@ export function analyzeScheduleWarningsV3(config: SchedulerConfigV3, employees: 
   const weeks = [...new Set(dates.map(d => getWeekStartV3(d, config.weekStartDay)))].sort();
   for (const employee of [...employees].sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) {
     const profile = employee.schedulerV3;
-    if (profile.rotateStandardShiftWeekly && (!profile.standardShiftTemplateId || !profile.rotationAlternateShiftTemplateId || !profile.rotationAnchorWeekStart ||
-      !config.shiftTemplates.some(t => t.id === profile.standardShiftTemplateId) || !config.shiftTemplates.some(t => t.id === profile.rotationAlternateShiftTemplateId))) {
-      add('ROTATION_CONFIGURATION_WARNING', 'Η εβδομαδιαία εναλλαγή χρειάζεται δύο πρότυπα και εβδομάδα αναφοράς.', { employeeId: employee.id });
+    if (profile.rotateStandardShiftWeekly && !validateEmployeeProfileV3(profile).valid) {
+      add('ROTATION_CONFIGURATION_WARNING', 'Η εβδομαδιαία εναλλαγή χρειάζεται έγκυρες ώρες και εβδομάδα αναφοράς.', { employeeId: employee.id });
     }
     const list = ordered.filter(s => s.employeeId === employee.id);
     for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) {

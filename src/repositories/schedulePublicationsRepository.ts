@@ -2,9 +2,9 @@ import { collection, doc, getDoc, getDocs, query, where, runTransaction, writeBa
 import { ref, uploadBytes, getBytes } from 'firebase/storage';
 import { db, auth, storage } from '../firebase/config';
 import { normalizeTenantId } from '../utils/tenantDataPaths';
-import { analyzeDraftV3, type DraftV3 } from '../services/schedulerV3Service.ts';
+import { analyzeDraftV3, decodeDraftProfilesV3, mapEmployeesV3, type DraftV3 } from '../services/schedulerV3Service.ts';
 import { projectionTargetsV3, projectionPayloadV3 } from '../services/publicationProjectionsV3.ts';
-import { validateSchedulerConfigV3, validateEmployeeProfileV3 } from '../scheduler-engine-v3/index.ts';
+import { validateSchedulerConfigV3 } from '../scheduler-engine-v3/index.ts';
 import type { EmployeeV3, SchedulerConfigV3, SchedulePublicationV3 } from '../scheduler-engine-v3/types.ts';
 
 const clean = (data: unknown) => JSON.parse(JSON.stringify(data));
@@ -24,15 +24,16 @@ export const schedulePublicationsRepository={
   async saveSettings(config:SchedulerConfigV3,employees:EmployeeV3[]) {
     const c=context(config.tenantId);
     if(!validateSchedulerConfigV3(config).valid||employees.length>100)throw new Error('Μη έγκυρες ρυθμίσεις.');
-    const batch=writeBatch(db); const ids=new Set(config.shiftTemplates.map(t=>t.id));
-    for(const employee of employees) {
-      if(!validateEmployeeProfileV3(employee.schedulerV3,ids).valid)throw new Error('Μη έγκυρο προφίλ.');
+    const canonicalEmployees=mapEmployeesV3(employees,config);
+    const batch=writeBatch(db);
+    for(const employee of canonicalEmployees) {
       batch.update(doc(db,c.root,'employees',idCheck(employee.id)),{schedulerV3:clean(employee.schedulerV3)});
     }
     batch.set(doc(db,c.root,'settings','scheduler'),{schedulerConfigV3:clean(config)},{merge:true});
     await batch.commit();
   },
   async saveDraft(draft:DraftV3) {
+    draft=decodeDraftProfilesV3(draft);
     analyzeDraftV3(draft); const c=context(draft.config.tenantId);idCheck(draft.id);
     return runTransaction(db,async tx=>{
       const metadata=doc(db,c.root,'scheduleDrafts',draft.id);const previous=await tx.get(metadata);
@@ -57,7 +58,7 @@ export const schedulePublicationsRepository={
       const ids:string[]=metadata.data().shiftDocumentIds||[];
       const shifts=await Promise.all(ids.map(shiftId=>tx.get(doc(db,c.root,'shifts',idCheck(shiftId)))));
       if(shifts.some(s=>!s.exists()))throw new Error('Λείπουν δεδομένα προσχεδίου.');
-      const draft={...metadata.data(),id,shifts:shifts.map(d=>d.data())} as DraftV3;
+      const draft=decodeDraftProfilesV3({...metadata.data(),id,shifts:shifts.map(d=>d.data())} as DraftV3);
       if(draft.config.tenantId!==c.tenant)throw new Error('Μη έγκυρο κατάστημα.');
       analyzeDraftV3(draft);return draft;
     });

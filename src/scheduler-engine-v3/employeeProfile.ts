@@ -10,9 +10,11 @@ import type {
   EmployeeSchedulingProfileV3,
   EmployeeV3,
   ShiftTemplateV3,
+  StandardShiftV3,
   Weekday,
 } from './types.ts';
 import { DEFAULT_EMPLOYEE_PROFILE_V3 } from './types.ts';
+import { isIsoDateV3 } from './config.ts';
 
 const WEEKDAY_JS_INDEX: Record<string, number> = {
   SUNDAY: 0, MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3,
@@ -30,18 +32,32 @@ const JS_INDEX_TO_WEEKDAY: Weekday[] = [
 export function normalizeEmployeeProfileV3(
   profile?: Partial<EmployeeSchedulingProfileV3> | null,
 ): EmployeeSchedulingProfileV3 {
-  if (!profile) return { ...DEFAULT_EMPLOYEE_PROFILE_V3 };
-  return {
-    workMode: profile.workMode || 'NORMAL',
-    fixedDayOff: typeof profile.fixedDayOff === 'number' ? profile.fixedDayOff : null,
-    targetWeeklyHours: typeof profile.targetWeeklyHours === 'number' && profile.targetWeeklyHours >= 0
-      ? profile.targetWeeklyHours
-      : null,
-    standardShiftTemplateId: profile.standardShiftTemplateId || null,
-    rotateStandardShiftWeekly: profile.rotateStandardShiftWeekly === true,
-    rotationAlternateShiftTemplateId: profile.rotationAlternateShiftTemplateId || null,
-    rotationAnchorWeekStart: profile.rotationAnchorWeekStart || null,
-  };
+  if (profile == null) return { ...DEFAULT_EMPLOYEE_PROFILE_V3 };
+  if (typeof profile !== 'object' || Array.isArray(profile)) throw new Error('Μη έγκυρη δομή προφίλ.');
+  // Defaults fill absent fields only. Keep invalid values/unknown fields for validation.
+  return structuredClone({ ...DEFAULT_EMPLOYEE_PROFILE_V3, ...profile });
+}
+
+export function isDirectShiftV3(value: unknown): value is StandardShiftV3 {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const range = value as StandardShiftV3;
+  return Object.keys(value).length === 2 && Object.hasOwn(value, 'startTime') && Object.hasOwn(value, 'endTime') &&
+    typeof range.startTime === 'string' && typeof range.endTime === 'string' &&
+    /^(?:[01]\d|2[0-3]):(?:00|15|30|45)$/.test(range.startTime) &&
+    /^(?:[01]\d|2[0-3]):(?:00|15|30|45)$/.test(range.endTime) && range.startTime !== range.endTime;
+}
+
+export function sameShiftTimesV3(a: StandardShiftV3 | null, b: StandardShiftV3 | null): boolean {
+  return !!a && !!b && a.startTime === b.startTime && a.endTime === b.endTime;
+}
+
+const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+function duration(range: StandardShiftV3): number { return (minutes(range.endTime) - minutes(range.startTime) + 1440) % 1440; }
+/** Circular-day intervals are half open; adjacent ranges do not overlap. */
+export function validRotationPairV3(a: StandardShiftV3 | null, b: StandardShiftV3 | null): boolean {
+  if (!isDirectShiftV3(a) || !isDirectShiftV3(b) || duration(a) !== duration(b)) return false;
+  const aStart = minutes(a.startTime), aEnd = aStart + duration(a), bStart = minutes(b.startTime);
+  return ![-1440, 0, 1440].some(offset => aStart < bStart + offset + duration(b) && bStart + offset < aEnd);
 }
 
 /**
@@ -50,12 +66,16 @@ export function normalizeEmployeeProfileV3(
  */
 export function validateEmployeeProfileV3(
   profile: EmployeeSchedulingProfileV3,
-  availableTemplateIds: Set<string>,
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) return { valid: false, errors: ['Μη έγκυρη δομή προφίλ.'] };
+  const keys = Object.keys(DEFAULT_EMPLOYEE_PROFILE_V3);
+  if (Object.keys(profile).length !== keys.length || keys.some(key => !Object.hasOwn(profile, key))) errors.push('Το προφίλ πρέπει να περιέχει μόνο τα πεδία της έκδοσης 2.');
+  if (profile.profileVersion !== 2) errors.push('Μη έγκυρη έκδοση προφίλ.');
+  if (typeof profile.rotateStandardShiftWeekly !== 'boolean') errors.push('Μη έγκυρη επιλογή εβδομαδιαίας αλλαγής.');
 
   if (profile.workMode !== 'NORMAL' && profile.workMode !== 'SUBSTITUTE_ONLY') {
-    errors.push('Ο τρόπος εργασίας (workMode) πρέπει να είναι NORMAL ή SUBSTITUTE_ONLY.');
+    errors.push('Η συμμετοχή πρέπει να είναι «Κανονική συμμετοχή» ή «Μόνο για κάλυψη / αντικατάσταση».');
   }
 
   if (profile.fixedDayOff !== null) {
@@ -70,15 +90,11 @@ export function validateEmployeeProfileV3(
     }
   }
 
-  if (profile.standardShiftTemplateId !== null && !availableTemplateIds.has(profile.standardShiftTemplateId)) {
-    errors.push(`Μη έγκυρη αναφορά τυπικής βάρδιας: ${profile.standardShiftTemplateId}.`);
-  }
-
+  if (profile.standardShift !== null && !isDirectShiftV3(profile.standardShift)) errors.push('Μη έγκυρες ώρες τυπικής βάρδιας.');
+  if (profile.rotationAlternateShift !== null && !isDirectShiftV3(profile.rotationAlternateShift)) errors.push('Μη έγκυρες ώρες εναλλακτικής βάρδιας.');
+  if (profile.rotationAnchorWeekStart !== null && (!isIsoDateV3(profile.rotationAnchorWeekStart) || new Date(profile.rotationAnchorWeekStart + 'T00:00:00Z').getUTCDay() !== 1)) errors.push('Η εβδομάδα αναφοράς πρέπει να είναι έγκυρη Δευτέρα.');
   if (profile.rotateStandardShiftWeekly) {
-    // Missing rotation choices produce ROTATION_CONFIGURATION_WARNING; owners may save the draft.
-    if (profile.rotationAlternateShiftTemplateId && !availableTemplateIds.has(profile.rotationAlternateShiftTemplateId)) {
-      errors.push(`Μη έγκυρη αναφορά εναλλακτικής βάρδιας: ${profile.rotationAlternateShiftTemplateId}.`);
-    }
+    if (!validRotationPairV3(profile.standardShift, profile.rotationAlternateShift) || !profile.rotationAnchorWeekStart) errors.push('Η εβδομαδιαία αλλαγή χρειάζεται δύο μη επικαλυπτόμενες βάρδιες ίδιας διάρκειας και εβδομάδα αναφοράς.');
   }
 
   return { valid: errors.length === 0, errors };
@@ -123,69 +139,52 @@ export function computeRotationWeekParity(
 }
 
 /**
- * Resolve the effective standard shift template ID for an employee on a given date.
+ * Resolve the effective direct-time standard shift for an employee on a given date.
  * Considers rotation if enabled.
  *
- * @returns The effective shift template ID, or null if no standard shift configured.
+ * @returns The effective time range, or null if no standard shift configured.
  */
 export function resolveEffectiveStandardShift(
   profile: EmployeeSchedulingProfileV3,
   dateStr: string,
-): string | null {
-  if (!profile.standardShiftTemplateId) return null;
+): StandardShiftV3 | null {
+  if (!profile.standardShift) return null;
 
-  if (!profile.rotateStandardShiftWeekly || !profile.rotationAlternateShiftTemplateId) {
-    return profile.standardShiftTemplateId;
+  if (!profile.rotateStandardShiftWeekly || !profile.rotationAlternateShift) {
+    return profile.standardShift;
   }
 
   const parity = computeRotationWeekParity(dateStr, profile.rotationAnchorWeekStart);
   return parity === 0
-    ? profile.standardShiftTemplateId
-    : profile.rotationAlternateShiftTemplateId;
+    ? profile.standardShift
+    : profile.rotationAlternateShift;
 }
 
 /**
- * Resolve an alternate shift template for rotation.
- * If the standard shift is MORNING, find the first active AFTERNOON template.
- * If AFTERNOON, find the first active MORNING template.
- * Returns null if no unambiguous alternate can be resolved.
+ * Resolve a unique active time range of equal duration without circular-day overlap.
+ * Labels, template IDs, and shift types do not influence selection.
  */
-export function resolveRotationAlternateTemplate(
-  standardTemplateId: string,
+export function resolveRotationAlternateShiftV3(
+  standard: StandardShiftV3 | null,
   allTemplates: ShiftTemplateV3[],
-): { alternateId: string | null; ambiguous: boolean } {
-  const standard = allTemplates.find((t) => t.id === standardTemplateId);
-  if (!standard) return { alternateId: null, ambiguous: false };
-
-  let oppositeType: string;
-  if (standard.shiftType === 'MORNING') {
-    oppositeType = 'AFTERNOON';
-  } else if (standard.shiftType === 'AFTERNOON') {
-    oppositeType = 'MORNING';
-  } else {
-    // INTERMEDIATE, NIGHT, CUSTOM — no automatic rotation
-    return { alternateId: null, ambiguous: false };
+): { alternate: StandardShiftV3 | null; ambiguous: boolean } {
+  const unique = new Map<string, StandardShiftV3>();
+  for (const template of allTemplates) {
+    const range = { startTime: template.startTime, endTime: template.endTime };
+    if (template.isActive === true && validRotationPairV3(standard, range) && template.durationHours === duration(range) / 60 && template.crossMidnight === (range.endTime < range.startTime)) unique.set(range.startTime + '/' + range.endTime, range);
   }
-
-  const candidates = allTemplates.filter(
-    (t) => t.isActive && t.shiftType === oppositeType && t.id !== standardTemplateId,
-  );
-
-  if (candidates.length === 0) return { alternateId: null, ambiguous: false };
-  if (candidates.length === 1) return { alternateId: candidates[0].id, ambiguous: false };
-  // Multiple candidates — ambiguous
-  return { alternateId: null, ambiguous: true };
+  return { alternate: unique.size === 1 ? [...unique.values()][0] : null, ambiguous: unique.size > 1 };
 }
 
 /** Normal OWNER controls only choose a standard shift and toggle weekly rotation. */
 export function applySimpleRotationV3(profile:EmployeeSchedulingProfileV3,templates:ShiftTemplateV3[]):{profile:EmployeeSchedulingProfileV3;warning:string|null} {
   const next=normalizeEmployeeProfileV3(profile);
   if(!next.rotateStandardShiftWeekly)return {profile:next,warning:null};
-  const standard=templates.find(t=>t.id===next.standardShiftTemplateId&&t.isActive);
-  const alternate=standard?resolveRotationAlternateTemplate(standard.id,templates):{alternateId:null,ambiguous:false};
-  next.rotationAlternateShiftTemplateId=alternate.alternateId;
+  const alternate=resolveRotationAlternateShiftV3(next.standardShift,templates);
+  next.rotationAlternateShift=alternate.alternate;
   next.rotationAnchorWeekStart=next.rotationAnchorWeekStart||'2026-01-05';
-  return {profile:next,warning:alternate.alternateId?null:alternate.ambiguous?'Υπάρχουν περισσότερες από μία αντίθετες βάρδιες. Διόρθωσε τα ενεργά πρότυπα.':'Η εβδομαδιαία αλλαγή χρειάζεται μία ενεργή πρωινή και μία απογευματινή βάρδια.'};
+  const validation=validateEmployeeProfileV3(next);
+  return {profile:next,warning:validation.valid?null:alternate.ambiguous?'Υπάρχουν περισσότερες από μία κατάλληλες εναλλακτικές βάρδιες. Διόρθωσε τα ενεργά πρότυπα.':validation.errors.join(' ')};
 }
 
 /**

@@ -14,7 +14,7 @@ export function assertV3Input(input: GenerateScheduleV3Input, shifts: GeneratedS
   for (const employee of input.employees) {
     if (!employee || !employee.id || employeeIds.has(employee.id) || typeof employee.fullName !== 'string' || typeof employee.isActive !== 'boolean') throw new Error('Μη έγκυρος εργαζόμενος.');
     employeeIds.add(employee.id);
-    if (!employee.schedulerV3 || !validateEmployeeProfileV3(employee.schedulerV3, templates).valid) throw new Error('Μη έγκυρο προφίλ εργαζομένου.');
+    if (!employee.schedulerV3 || !validateEmployeeProfileV3(employee.schedulerV3).valid) throw new Error('Μη έγκυρο προφίλ εργαζομένου.');
     for (const date of [employee.activeFrom, employee.activeTo, employee.schedulerV3.rotationAnchorWeekStart]) if (date && !isIsoDateV3(date)) throw new Error('Μη έγκυρη ημερομηνία προφίλ.');
   }
   const shiftIds = new Set<string>();
