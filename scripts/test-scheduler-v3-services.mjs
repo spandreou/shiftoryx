@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import { createDraftV3, makeDefaultConfigV3, mapEmployeesV3, analyzeDraftV3, editDraftV3, isSchedulerV3Active } from '../src/services/schedulerV3Service.ts';
+import { buildPublicationV3, publishDraftV3, publicProjectionV3 } from '../src/services/schedulePublicationService.ts';
+import { renderPublicationPdfV3 } from '../src/services/schedulePublicationPdf.ts';
+import { previewV2Migration } from '../src/scheduler-engine-v3/migration.ts';
+import { projectionTargetsV3, projectionPayloadV3 } from '../src/services/publicationProjectionsV3.ts';
+import { getShiftDurationHours } from '../src/utils/analytics.js';
+let passed=0;
+async function test(name,fn){await fn();passed++;console.log('PASS '+name);}
+const config=makeDefaultConfigV3('tenant-a');
+const employees=mapEmployeesV3([{id:'one',fullName:'Εργαζόμενος',isActive:true,email:'private@example.test',afm:'PRIVATE',scheduleRole:'EXTRA_A'},{id:'two',fullName:'Δεύτερος',isActive:true}]);
+const input={config,employees,absences:[],periodStart:'2026-09-07',periodEnd:'2026-09-13',periodType:'WEEK',options:{balanceWeeklyTargets:true}};
+const draft=createDraftV3(input,'draft-1');
+const context={tenantId:'tenant-a',uid:'owner-a',id:'publication-1',timestamp:'2026-09-07T10:00:00Z',version:1,acceptWarnings:true};
+await test('dual activation gate',()=>{for(const flag of [false,undefined,'false'])assert.equal(isSchedulerV3Active(flag,3),false);assert.equal(isSchedulerV3Active('true',2),false);assert.equal(isSchedulerV3Active('true',3),true);});
+await test('legacy role never means substitute',()=>assert.equal(employees[0].schedulerV3.workMode,'NORMAL'));
+await test('draft input immutable',()=>{const before=JSON.stringify(input);createDraftV3(input,'draft-2');assert.equal(JSON.stringify(input),before);});
+await test('shortage save analysis nonblocking',()=>{const shortage=editDraftV3(draft,[]);assert.ok(analyzeDraftV3(shortage).warnings.every(w=>!w.blocking));});
+await test('technical invalid edit rejected',()=>assert.throws(()=>editDraftV3(draft,[{...draft.shifts[0],employeeId:'foreign'}])));
+await test('publication tenant binding',()=>assert.throws(()=>buildPublicationV3(draft,{...context,tenantId:'tenant-b'})));
+const snapshot=buildPublicationV3(draft,context);
+await test('immutable independent snapshot',()=>{const x=buildPublicationV3(draft,context);x.templateSnapshot.shiftTemplates[0].label='changed';assert.equal(draft.config.shiftTemplates[0].label,'Ημέρα');});
+await test('private employee data excluded',()=>{const text=JSON.stringify(snapshot);assert.ok(!text.includes('private@example.test'));assert.ok(!text.includes('PRIVATE'));assert.deepEqual(Object.keys(snapshot.employeeSnapshot[0]).sort(),['displayName','employeeId']);});
+await test('public projection has no internal identity or warnings',()=>{for(const shift of publicProjectionV3(snapshot)){assert.deepEqual(Object.keys(shift).sort(),['crossMidnight','date','employeeName','endTime','label','schedulerSchemaVersion','shiftType','startTime','type']);assert.equal(shift.label,'ΕΡΓ');}});
+await test('PDF is real and derived from snapshot',async()=>{const bytes=await renderPublicationPdfV3(snapshot);assert.equal(new TextDecoder().decode(bytes.slice(0,5)),'%PDF-');assert.ok(bytes.length>1000);});
+await test('publication follows reserve PDF upload finalize order',async()=>{const calls=[];const result=await publishDraftV3(draft,context,{reserve:async()=>{calls.push('reserve');return 2;},renderPdf:async s=>{calls.push('render');assert.equal(s.version,2);return new Uint8Array([37,80,68,70]);},uploadPdf:async path=>{calls.push('upload');assert.equal(path,'tenants/tenant-a/schedule-publications/publication-1/schedule.pdf');},finalize:async()=>{calls.push('finalize');}});assert.equal(result.version,2);assert.deepEqual(calls,['reserve','render','upload','finalize']);});
+await test('upload failure does not expose publication',async()=>{let finalized=false;await assert.rejects(()=>publishDraftV3(draft,context,{reserve:async()=>1,renderPdf:async()=>new Uint8Array([1]),uploadPdf:async()=>{throw new Error('offline');},finalize:async()=>{finalized=true;}}));assert.equal(finalized,false);});
+await test('invalid draft has zero side effects',async()=>{let called=false;await assert.rejects(()=>publishDraftV3({...draft,periodStart:'invalid'},context,{reserve:async()=>{called=true;return 1;}}));assert.equal(called,false);});
+await test('warnings require explicit acknowledgment and can be published',async()=>{const empty=editDraftV3(draft,[]);let calls=0;const io={reserve:async()=>{calls++;return 1;},renderPdf:async()=>new Uint8Array([1]),uploadPdf:async()=>{},finalize:async()=>{calls++;}};await assert.rejects(()=>publishDraftV3(empty,{...context,acceptWarnings:false},io));assert.equal(calls,0);await publishDraftV3(empty,context,io);assert.equal(calls,2);});
+await test('migration remains preview only and reports incompatible semantics',()=>{const raw={...config,coverageRequirements:config.coverageRequirements.map(p=>({...p,slots:p.slots.map(s=>({...s,targetHeadcount:s.headcount,requiredRole:'CORE_A'}))}))};const before=JSON.stringify(raw);const result=previewV2Migration(raw,'tenant-a');assert.equal(JSON.stringify(raw),before);assert.equal(result.requiresOwnerReview,true);assert.ok(result.deferred.length);assert.ok(result.config.coverageRequirements.every(p=>p.slots.every(s=>!('requiredRole'in s))));});
+await test('month publication updates every overlapping week and preserves boundary days',()=>{
+  const month={...snapshot,periodType:'MONTH',periodStart:'2026-09-01',periodEnd:'2026-09-30'};
+  const targets=projectionTargetsV3(month);assert.equal(targets.filter(t=>t.collection==='publicSchedules').length,5);
+  const prior={shifts:[{employeeName:'Old',date:'2026-08-31',startTime:'08:00',endTime:'16:00'},{employeeName:'Stale',date:'2026-09-01',startTime:'08:00',endTime:'16:00'}]};
+  const payload=projectionPayloadV3(month,targets[0],prior);assert.ok(payload.shifts.some(s=>s.date==='2026-08-31'));assert.ok(!payload.shifts.some(s=>s.employeeName==='Stale'));
+});
+await test('public V3 overnight analytics and legacy behavior',()=>{
+  assert.equal(getShiftDurationHours({schedulerSchemaVersion:3,crossMidnight:true,startTime:'22:00',endTime:'06:00'}),8);
+  assert.throws(()=>getShiftDurationHours({startTime:'22:00',endTime:'06:00'}));
+});
+console.log(`V3 service tests PASS=${passed}`);

@@ -23,6 +23,12 @@ export function getShiftTypeLabel(type) {
 }
 
 export function getShiftDurationHours(shift) {
+  if (shift?.schedulerSchemaVersion === 3 && shift.crossMidnight === true) {
+    const valid = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (!valid.test(shift.startTime) || !valid.test(shift.endTime) || shift.endTime >= shift.startTime) throw new Error('Μη έγκυρη νυχτερινή βάρδια.');
+    const minutes = value => { const [h,m]=value.split(':').map(Number);return h*60+m; };
+    return minutesToHours(1440 + minutes(shift.endTime) - minutes(shift.startTime));
+  }
   const minutes = calculateShiftDurationMinutes(shift.startTime, shift.endTime);
   return minutesToHours(minutes);
 }

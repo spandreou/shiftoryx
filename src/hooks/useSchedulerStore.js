@@ -228,6 +228,8 @@ function stopAdminDataSubscriptions(get) {
 
 function clearAdminDataState() {
   return {
+    schedulerConfigV3: null,
+    schedulerSchemaVersion: 2,
     employees: [],
     shifts: [],
     shiftTemplates: [],
@@ -423,6 +425,8 @@ export const useSchedulerStore = create((set, get) => ({
   publicAnnouncements: [],
   generatorRules: { ...defaultGeneratorRules },
   schedulerConfigV2: null,
+  schedulerConfigV3: null,
+  schedulerSchemaVersion: 2,
   specialDaysByDate: {},
   selectedHistoryWeekId: '',
   selectedTemplateId: '',
@@ -729,7 +733,7 @@ export const useSchedulerStore = create((set, get) => ({
           settingsDoc?.specialDaysByDate && typeof settingsDoc.specialDaysByDate === 'object'
             ? settingsDoc.specialDaysByDate
             : {};
-        set({ generatorRules, schedulerConfigV2, specialDaysByDate });
+        set({ generatorRules, schedulerConfigV2, specialDaysByDate, schedulerConfigV3: settingsDoc?.schedulerConfigV3 || null, schedulerSchemaVersion: settingsDoc?.schedulerSchemaVersion || 2 });
       },
       () => set({ warningMessage: 'Αποτυχία φόρτωσης ρυθμίσεων προγραμματισμού.' }),
     );
@@ -972,6 +976,10 @@ export const useSchedulerStore = create((set, get) => ({
   },
 
   refreshPublicWeekSnapshot: async ({ weekStart = get().weekStart, shifts = null, silent = false } = {}) => {
+    if (get().schedulerSchemaVersion === 3) {
+      if (!silent) set({ warningMessage: 'Η δημόσια προβολή ενημερώνεται μόνο με νέα δημοσίευση V3.' });
+      return false;
+    }
     if (!get().isAdmin || !weekStart) return true;
     const weekDays = getWeekDays(weekStart);
     const weekSet = new Set(weekDays);
@@ -1004,6 +1012,10 @@ export const useSchedulerStore = create((set, get) => ({
   },
 
   refreshPublicMonthSnapshot: async ({ year, month, monthDays, shifts = null } = {}) => {
+    if (get().schedulerSchemaVersion === 3) {
+      set({ warningMessage: 'Η δημόσια προβολή ενημερώνεται μόνο με νέα δημοσίευση V3.' });
+      return false;
+    }
     if (!get().isAdmin) return true;
     const numericYear = Number(year);
     const numericMonth = Number(month);
@@ -2110,6 +2122,10 @@ export const useSchedulerStore = create((set, get) => ({
 
   clearMonthShifts: async ({ year, month }) => {
     if (!requireAdmin(get, set)) return false;
+    if (get().schedulerSchemaVersion === 3) {
+      set({ warningMessage: 'Ο καθαρισμός V2 δεν επιτρέπεται σε κατάστημα V3. Δημιούργησε νέο προσχέδιο.' });
+      return false;
+    }
 
     const numericYear = Number(year);
     const numericMonth = Number(month);
