@@ -46,6 +46,39 @@ async function main() {
   const draftRef=doc(db,'tenants/tenant-a/scheduleDrafts',draft.id);
   for(const patch of [{periodType:'YEAR'},{periodStart:'bad'},{periodStart:'2026-02-31',periodEnd:'2026-03-01'},{periodStart:'2100-02-29',periodEnd:'2100-03-01'},{periodEnd:'2026-09-31'},{periodEnd:[]},{periodEnd:'2026-09-01'},{revision:-1},{revision:1.5},{revision:'1'},{'config.tenantId':'tenant-b'},{id:'other'},{unexpected:'field'}])await denied(()=>updateDoc(draftRef,patch),'malformed draft');
   console.log('CHECK concurrent reservations');
+  console.log('CHECK V3 draft shift data integrity');
+  const validShift={id:'integrity-shift',date:'2026-09-07',employeeId:'a',employeeName:'Μαρία',shiftTemplateId:null,startTime:'08:00',endTime:'16:00',durationHours:8,crossMidnight:false,source:'AUTO',isManualOverride:false,schedulerSchemaVersion:3,draftId:draft.id,type:'work'};
+  const shiftRef=doc(db,'tenants/tenant-a/shifts/integrity-probe');
+  const invalidShifts=[];
+  const invalidFields={
+    date:['2026-02-31','2025-02-29','2026-13-01',{},[],1],
+    startTime:['24:00','25:00','99:99','12:60','-1:00','abc',{},[],1],
+    endTime:['12:60','24:00','99:99',{},[],1],
+    id:['','../bad','x'.repeat(101),{},[],1],
+    employeeId:['','../bad','x'.repeat(101),{},[],1],
+    employeeName:['','x'.repeat(201),{},[],1],
+    shiftTemplateId:['','../bad','x'.repeat(101),{},[],1],
+    draftId:['','../bad','x'.repeat(101),{},[],1],
+    crossMidnight:['false',{},[],1],isManualOverride:[1,'false',{},[]],
+    durationHours:[0,-1,25,'8',{},[]],source:['INVALID',{},[],1],
+    schedulerSchemaVersion:[2,'3',{},[]],type:['leave',{},[],1],unexpected:['field'],
+  };
+  for(const [field,values] of Object.entries(invalidFields))values.forEach((value,n)=>invalidShifts.push({label:`${field}/${n}`,data:{...validShift,[field]:value}}));
+  for(const field of Object.keys(validShift)){const data={...validShift};delete data[field];invalidShifts.push({label:`missing/${field}`,data});}
+  const failures=[];
+  for(const [n,candidate] of invalidShifts.entries()){
+    await setDoc(shiftRef,validShift);
+    for(const [mode,target] of [['create',doc(db,`tenants/tenant-a/shifts/integrity-invalid-${n}`)],['update',shiftRef]]){
+      try{await denied(()=>setDoc(target,candidate.data),`${mode}/${candidate.label}`);}catch(error){failures.push(`${mode}/${candidate.label}`);}
+    }
+  }
+  for(const date of ['2024-02-29','2000-02-29','2400-02-29']){
+    const control={...validShift,date,startTime:'00:00',endTime:'23:59',durationHours:23+59/60,employeeName:'Ω'.repeat(200),shiftTemplateId:'day',source:'MANUAL',isManualOverride:true};
+    await setDoc(shiftRef,control);assert.deepEqual((await getDoc(shiftRef)).data(),control);
+  }
+  assert.deepEqual(failures,[],'V3 malformed shifts must return permission-denied');
+  await deleteDoc(shiftRef);
+  console.log(`V3 shift integrity PASS: ${invalidShifts.length*2} negative writes; 3 leap-day/time-boundary controls.`);
   const key='WEEK_2026-09-07_2026-09-13';const versions=await Promise.all([repository.reserve('tenant-a',key,'pub-a'),repository.reserve('tenant-a',key,'pub-b')]);
   assert.deepEqual([...versions].sort(),[1,2]);
   const snapshots=versions.map((version,n)=>buildPublicationV3(draft,{tenantId:'tenant-a',uid:user.uid,id:n?'pub-b':'pub-a',version,timestamp:'2026-09-08T00:00:00Z'}));

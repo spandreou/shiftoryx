@@ -150,10 +150,18 @@ service cloud.firestore {
         d.employees is list && d.absences is list && d.options is map && d.shiftDocumentIds is list && d.shiftDocumentIds.size() <= 450 &&
         (!('sourcePublicationId' in d) || safeV3Id(d.sourcePublicationId));
     }
+    function v3Time(value) {
+      return value is string && value.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+    }
     function validDraftShiftV3() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['id','date','employeeId','employeeName','shiftTemplateId','startTime','endTime','durationHours','crossMidnight','source','isManualOverride','schedulerSchemaVersion','draftId','type']) &&
-        d.schedulerSchemaVersion == 3 && d.draftId is string && d.draftId.matches('^[a-zA-Z0-9_-]{1,100}$') && d.employeeId is string && isIsoDate(d.date) && isTime(d.startTime) && isTime(d.endTime) &&
+      let fields = ['id','date','employeeId','employeeName','shiftTemplateId','startTime','endTime','durationHours','crossMidnight','source','isManualOverride','schedulerSchemaVersion','draftId','type'];
+      return d.keys().hasAll(fields) && d.keys().hasOnly(fields) &&
+        d.schedulerSchemaVersion == 3 && safeV3Id(d.id) && safeV3Id(d.draftId) && safeV3Id(d.employeeId) &&
+        d.employeeName is string && d.employeeName.size() > 0 && d.employeeName.size() <= 200 &&
+        (d.shiftTemplateId == null || safeV3Id(d.shiftTemplateId)) &&
+        v3Date(d.date) && v3Time(d.startTime) && v3Time(d.endTime) &&
+        d.crossMidnight is bool && d.isManualOverride is bool &&
         d.durationHours is number && d.durationHours > 0 && d.durationHours <= 24 && d.source in ['AUTO','MANUAL'] && d.type == 'work';
     }
 
