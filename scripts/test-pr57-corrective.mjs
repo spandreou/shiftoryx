@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import * as service from '../src/services/schedulerV3Service.ts';
 import * as profiles from '../src/scheduler-engine-v3/employeeProfile.ts';
+import { requireEmployeeProfileV3 } from '../src/scheduler-engine-v3/profileCompatibility.ts';
 import { buildPublicationV3 } from '../src/services/schedulePublicationService.ts';
 const config=service.makeDefaultConfigV3('tenant-a');
-config.shiftTemplates.push({...config.shiftTemplates[0],id:'afternoon',shiftType:'AFTERNOON',startTime:'16:00',endTime:'20:00',durationHours:4});
+config.shiftTemplates.push({...config.shiftTemplates[0],id:'afternoon',shiftType:'AFTERNOON',startTime:'16:00',endTime:'00:00',durationHours:8,crossMidnight:true});
+const day={startTime:'08:00',endTime:'16:00'},afternoon={startTime:'16:00',endTime:'00:00'};
 const employees=service.mapEmployeesV3([{id:'a',fullName:'Μαρία',isActive:true}]);
 const input={config,employees,absences:[],periodType:'WEEK',periodStart:'2026-09-07',periodEnd:'2026-09-13',options:{balanceWeeklyTargets:true}};
 const draft=service.createDraftV3(input,'base-draft');
@@ -11,7 +13,7 @@ let passed=0;const failures=[];
 function test(name,fn){try{fn();passed++;}catch(error){failures.push(name+': '+error.message);}}
 for(const workMode of ['NORMAL','SUBSTITUTE_ONLY'])for(const targetWeeklyHours of [32,null]){
   test(`new employee preserves ${workMode}/${targetWeeklyHours}`,()=>{
-    const profile=profiles.normalizeEmployeeProfileV3({workMode,targetWeeklyHours,fixedDayOff:2,standardShiftTemplateId:'day',rotateStandardShiftWeekly:true,rotationAlternateShiftTemplateId:'afternoon',rotationAnchorWeekStart:'2026-09-07'});
+    const profile=requireEmployeeProfileV3({workMode,targetWeeklyHours,fixedDayOff:2,standardShiftTemplateId:'day',rotateStandardShiftWeekly:true,rotationAlternateShiftTemplateId:'afternoon',rotationAnchorWeekStart:'2026-09-07'},config.shiftTemplates);
     const added={id:'new',fullName:'Νέος',isActive:true,schedulerV3:profile};
     const result=service.refreshDraftPeopleV3(draft,[...employees,added],[]);
     assert.deepEqual(result.employees.find(e=>e.id==='new').schedulerV3,profile);
@@ -29,32 +31,34 @@ for(const workMode of ['NORMAL','SUBSTITUTE_ONLY'])for(const targetWeeklyHours o
 }
 test('simple rotation chooses opposite and stable anchor',()=>{
   assert.equal(typeof profiles.applySimpleRotationV3,'function');
-  const p=profiles.normalizeEmployeeProfileV3({standardShiftTemplateId:'day',rotateStandardShiftWeekly:true});
+  const p=profiles.normalizeEmployeeProfileV3({standardShift:day,rotateStandardShiftWeekly:true});
   const result=profiles.applySimpleRotationV3(p,config.shiftTemplates);
-  assert.equal(result.profile.rotationAlternateShiftTemplateId,'afternoon');
+  assert.deepEqual(result.profile.rotationAlternateShift,afternoon);
   assert.equal(result.profile.rotationAnchorWeekStart,'2026-01-05');
   assert.deepEqual(profiles.applySimpleRotationV3(result.profile,config.shiftTemplates),result);
-  assert.equal(profiles.resolveEffectiveStandardShift(result.profile,'2026-12-28'),'afternoon');
-  assert.equal(profiles.resolveEffectiveStandardShift(result.profile,'2027-01-04'),'day');
+  assert.deepEqual(profiles.resolveEffectiveStandardShift(result.profile,'2026-12-28'),afternoon);
+  assert.deepEqual(profiles.resolveEffectiveStandardShift(result.profile,'2027-01-04'),day);
 });
-test('ambiguous or custom rotation never guesses',()=>{
+test('ambiguous times never guess and custom label does not prevent valid rotation',()=>{
   assert.equal(typeof profiles.applySimpleRotationV3,'function');
-  const p=profiles.normalizeEmployeeProfileV3({standardShiftTemplateId:'day',rotateStandardShiftWeekly:true});
-  const ambiguous=profiles.applySimpleRotationV3(p,[...config.shiftTemplates,{...config.shiftTemplates[1],id:'other'}]);
-  assert.equal(ambiguous.profile.rotationAlternateShiftTemplateId,null);assert.ok(ambiguous.warning);
+  const p=profiles.normalizeEmployeeProfileV3({standardShift:day,rotateStandardShiftWeekly:true});
+  const ambiguous=profiles.applySimpleRotationV3(p,[...config.shiftTemplates,{...config.shiftTemplates[1],id:'other',startTime:'00:00',endTime:'08:00',crossMidnight:false}]);
+  assert.equal(ambiguous.profile.rotationAlternateShift,null);assert.ok(ambiguous.warning);
   const custom=profiles.applySimpleRotationV3(p,[{...config.shiftTemplates[0],shiftType:'CUSTOM'},config.shiftTemplates[1]]);
-  assert.equal(custom.profile.rotationAlternateShiftTemplateId,null);assert.ok(custom.warning);
+  assert.deepEqual(custom.profile.rotationAlternateShift,afternoon);assert.equal(custom.warning,null);
 });
-test('reverse rotation and missing/intermediate patterns are explicit',()=>{
-  const reverse=profiles.applySimpleRotationV3(profiles.normalizeEmployeeProfileV3({standardShiftTemplateId:'afternoon',rotateStandardShiftWeekly:true,rotationAnchorWeekStart:'2026-08-31'}),config.shiftTemplates);
-  assert.equal(reverse.profile.rotationAlternateShiftTemplateId,'day');
+test('reverse rotation and missing/inactive patterns are explicit; intermediate label is neutral',()=>{
+  const reverse=profiles.applySimpleRotationV3(profiles.normalizeEmployeeProfileV3({standardShift:afternoon,rotateStandardShiftWeekly:true,rotationAnchorWeekStart:'2026-08-31'}),config.shiftTemplates);
+  assert.deepEqual(reverse.profile.rotationAlternateShift,day);
   assert.equal(reverse.profile.rotationAnchorWeekStart,'2026-08-31');
-  assert.equal(profiles.resolveEffectiveStandardShift(reverse.profile,'2026-09-07'),'day');
-  const p=profiles.normalizeEmployeeProfileV3({standardShiftTemplateId:'day',rotateStandardShiftWeekly:true});
-  for(const templates of [[config.shiftTemplates[0]],[config.shiftTemplates[0],{...config.shiftTemplates[1],isActive:false}],[{...config.shiftTemplates[0],shiftType:'INTERMEDIATE'},config.shiftTemplates[1]]]){
+  assert.deepEqual(profiles.resolveEffectiveStandardShift(reverse.profile,'2026-09-07'),day);
+  const p=profiles.normalizeEmployeeProfileV3({standardShift:day,rotateStandardShiftWeekly:true});
+  for(const templates of [[config.shiftTemplates[0]],[config.shiftTemplates[0],{...config.shiftTemplates[1],isActive:false}]]){
     const result=profiles.applySimpleRotationV3(p,templates);
-    assert.equal(result.profile.rotationAlternateShiftTemplateId,null);assert.ok(result.warning);
+    assert.equal(result.profile.rotationAlternateShift,null);assert.ok(result.warning);
   }
+  const intermediate=profiles.applySimpleRotationV3(p,[{...config.shiftTemplates[0],shiftType:'INTERMEDIATE'},config.shiftTemplates[1]]);
+  assert.deepEqual(intermediate.profile.rotationAlternateShift,afternoon);assert.equal(intermediate.warning,null);
 });
 test('publication clone is new editable draft with immutable origin',()=>{
   assert.equal(typeof service.createDraftFromPublicationV3,'function');
