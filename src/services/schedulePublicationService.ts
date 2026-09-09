@@ -7,6 +7,7 @@ export function buildPublicationV3(draft: DraftV3, context: { tenantId: string; 
   return {
     id:context.id,tenantId:context.tenantId,schemaVersion:3,periodType:draft.periodType,periodStart:draft.periodStart,periodEnd:draft.periodEnd,
     periodKey:`${draft.periodType}_${draft.periodStart}_${draft.periodEnd}`,version:context.version,sourceDraftId:draft.id,
+    ...(draft.sourcePublicationId?{sourcePublicationId:draft.sourcePublicationId}:{}),
     templateSnapshot:structuredClone(draft.config),
     employeeSnapshot:draft.employees.map(e=>({employeeId:e.id,displayName:e.fullName,...(e.color?{color:e.color}:{})})),
     shifts:draft.shifts.map(s=>({id:s.id,date:s.date,employeeId:s.employeeId,employeeName:draft.employees.find(e=>e.id===s.employeeId)!.fullName,startTime:s.startTime,endTime:s.endTime,durationHours:s.durationHours,shiftTemplateId:s.shiftTemplateId,source:s.source})),

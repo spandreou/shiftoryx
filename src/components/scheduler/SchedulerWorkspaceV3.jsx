@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createDraftV3, analyzeDraftV3, editDraftV3, mapEmployeesV3, makeDefaultConfigV3 } from '../../services/schedulerV3Service.ts';
-import { refreshDraftPeopleV3 } from '../../services/schedulerV3Service.ts';
+import { refreshDraftPeopleV3, createDraftFromPublicationV3 } from '../../services/schedulerV3Service.ts';
 import { publishDraftV3 } from '../../services/schedulePublicationService.ts';
 import { renderPublicationPdfV3 } from '../../services/schedulePublicationPdf.ts';
 import { schedulePublicationsRepository as repository } from '../../repositories/schedulePublicationsRepository.ts';
@@ -13,8 +13,9 @@ import AbsencesPanel from './AbsencesPanel';
 
 export function SchedulerSetupV3({tenantId,employees}) {
   const [message,setMessage]=useState('');const [busy,setBusy]=useState(false);
-  const config=makeDefaultConfigV3(tenantId);
-  return <details className="glass-panel rounded p-4"><summary>Ρυθμίσεις νέου προγράμματος V3</summary><p>Η αποθήκευση ενεργοποιεί το νέο πρόγραμμα για αυτό το κατάστημα. Τα παλιά προγράμματα διατηρούνται.</p><SchedulerSettingsV3 config={config} employees={mapEmployeesV3(employees)} busy={busy} onSave={async(c,e)=>{setBusy(true);try{await repository.saveSettings(c,e);setMessage('Αποθηκεύτηκαν.');}catch{setMessage('Η αποθήκευση απέτυχε. Έλεγξε τις ρυθμίσεις και την πρόσβασή σου.');}finally{setBusy(false);}}}/><p role="status">{message}</p></details>;
+  const savedConfig=useSchedulerStore(state=>state.schedulerConfigV3);
+  const config=savedConfig?.tenantId===tenantId?savedConfig:makeDefaultConfigV3(tenantId);
+  return <details className="glass-panel rounded p-4"><summary>Ρυθμίσεις νέου προγράμματος V3</summary><p>Η αποθήκευση προετοιμάζει τις ρυθμίσεις V3 χωρίς να αλλάζει το ενεργό πρόγραμμα. Η ενεργοποίηση του καταστήματος γίνεται ξεχωριστά μετά από έγκριση.</p><SchedulerSettingsV3 config={config} employees={mapEmployeesV3(employees)} busy={busy} onSave={async(c,e)=>{setBusy(true);try{await repository.saveSettings(c,e);setMessage('Αποθηκεύτηκαν.');}catch{setMessage('Η αποθήκευση απέτυχε. Έλεγξε τις ρυθμίσεις και την πρόσβασή σου.');}finally{setBusy(false);}}}/><p role="status">{message}</p></details>;
 }
 export default function SchedulerWorkspaceV3({config,employees,absences,uid,onLogout}) {
   const [draft,setDraft]=useState(null),[start,setStart]=useState(()=>new Date().toISOString().slice(0,10)),[periodType,setPeriodType]=useState('WEEK'),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[publications,setPublications]=useState([]),[drafts,setDrafts]=useState([]),[acceptWarnings,setAcceptWarnings]=useState(false);
@@ -39,11 +40,11 @@ export default function SchedulerWorkspaceV3({config,employees,absences,uid,onLo
     <button className="rounded border px-3 py-2" onClick={()=>run(async()=>{setDrafts(await repository.listDrafts(config.tenantId));setPublications(await repository.list(config.tenantId));})}>Φόρτωση ιστορικού</button></fieldset>
     <p role="status" aria-live="polite">{busy?'Επεξεργασία…':message}</p>
     {drafts.map(d=><button className="mr-2 rounded border p-2" key={d.id} disabled={busy} onClick={()=>run(async()=>{const loaded=await repository.loadDraft(config.tenantId,d.id);setDraft(refreshDraftPeopleV3(loaded,mapEmployeesV3(useSchedulerStore.getState().employees),useSchedulerStore.getState().absences));setAcceptWarnings(false);})}>Προσχέδιο {d.periodStart}–{d.periodEnd}</button>)}
-    {draft&&<><SchedulePreviewV3 draft={draft} onChange={change} disabled={busy}/><section aria-label="Ώρες εργαζομένων"><h2 className="font-bold">Σύνολα</h2>{report.employeeHours.map(h=><p key={h.employeeId}>{draft.employees.find(e=>e.id===h.employeeId)?.fullName}: {h.hours} ώρες · {h.shiftCount} βάρδιες</p>)}</section><WarningsPanelV3 warnings={report.warnings}/>
+{draft&&<><SchedulePreviewV3 key={draft.id} draft={draft} onChange={change} disabled={busy}/><section aria-label="Ώρες εργαζομένων"><h2 className="font-bold">Σύνολα</h2>{report.employeeHours.map(h=><p key={h.employeeId}>{draft.employees.find(e=>e.id===h.employeeId)?.fullName}: {h.hours} ώρες · {h.shiftCount} βάρδιες</p>)}</section><WarningsPanelV3 warnings={report.warnings}/>
       <button disabled={busy} className="rounded border px-3 py-2" onClick={()=>run(async()=>{const revision=await repository.saveDraft(draft);setDraft(d=>({...d,revision}));setMessage('Το προσχέδιο αποθηκεύτηκε.');})}>Αποθήκευση προσχεδίου</button>
       {report.warnings.length>0&&<label className="block"><input type="checkbox" checked={acceptWarnings} onChange={e=>setAcceptWarnings(e.target.checked)}/> Διάβασα τις προειδοποιήσεις και επιλέγω δημοσίευση.</label>}
       <button disabled={busy||(report.warnings.length>0&&!acceptWarnings)} className="rounded bg-emerald-700 px-3 py-2 text-white" onClick={()=>run(async()=>{const tenantId=config.tenantId;const current=useSchedulerStore.getState();const candidate=refreshDraftPeopleV3(draft,mapEmployeesV3(current.employees),current.absences);if(JSON.stringify(analyzeDraftV3(candidate).warnings)!==JSON.stringify(report.warnings)){setDraft(candidate);setAcceptWarnings(false);throw new Error('Οι προειδοποιήσεις άλλαξαν. Έλεγξέ τες πριν τη δημοσίευση.');}const snapshot=await publishDraftV3(candidate,{tenantId,uid,id:crypto.randomUUID(),timestamp:new Date().toISOString(),acceptWarnings},{reserve:(key,id)=>repository.reserve(tenantId,key,id),renderPdf:renderPublicationPdfV3,uploadPdf:(path,bytes)=>repository.uploadPdf(tenantId,path,bytes),finalize:s=>repository.finalize(s)});setPublications(await repository.list(tenantId));setMessage(`Δημοσιεύτηκε η έκδοση ${snapshot.version}.`);})}>Δημοσίευση νέας έκδοσης</button>
     </>}
-    <PublicationHistoryV3 publications={publications} onDownload={download} busy={busy}/>
+    <PublicationHistoryV3 publications={publications} onDownload={download} busy={busy} onCreateDraft={publication=>run(async()=>{const current=useSchedulerStore.getState();setDraft(createDraftFromPublicationV3(publication,{tenantId:config.tenantId,employees:mapEmployeesV3(current.employees),absences:current.absences}));setAcceptWarnings(false);setMessage(`Δημιουργήθηκε νέο προσχέδιο από την έκδοση ${publication.version}.`);})}/>
   </main>;
 }

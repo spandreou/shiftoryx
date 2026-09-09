@@ -122,10 +122,33 @@ service cloud.firestore {
         isOptionalIntOrNull('fixedDayOff');
     }
 
+    function safeV3Id(value) {
+      return value is string && value.size() > 0 && value.size() <= 100 && value.matches('^[a-zA-Z0-9_-]+$');
+    }
+    function v3Date(value) {
+      // Calendar-valid ISO date, including Gregorian leap years (centuries divide by 400).
+      return value is string && (
+        value.matches('^[0-9]{4}-((01|03|05|07|08|10|12)-(0[1-9]|[12][0-9]|3[01])|(04|06|09|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$') ||
+        value.matches('^([0-9]{2}(0[48]|[2468][048]|[13579][26])|([02468][048]|[13579][26])00)-02-29$')
+      );
+    }
     function validEmployeeProfileV3(p) {
-      return p is map && p.keys().hasOnly(['workMode','fixedDayOff','targetWeeklyHours','standardShiftTemplateId','rotateStandardShiftWeekly','rotationAlternateShiftTemplateId','rotationAnchorWeekStart']) &&
+      return p is map && p.keys().hasAll(['workMode','fixedDayOff','targetWeeklyHours','standardShiftTemplateId','rotateStandardShiftWeekly','rotationAlternateShiftTemplateId','rotationAnchorWeekStart']) && p.keys().hasOnly(['workMode','fixedDayOff','targetWeeklyHours','standardShiftTemplateId','rotateStandardShiftWeekly','rotationAlternateShiftTemplateId','rotationAnchorWeekStart']) &&
         p.workMode in ['NORMAL','SUBSTITUTE_ONLY'] && (p.fixedDayOff == null || (p.fixedDayOff is int && p.fixedDayOff >= 0 && p.fixedDayOff <= 6)) &&
-        (p.targetWeeklyHours == null || (p.targetWeeklyHours is number && p.targetWeeklyHours >= 0 && p.targetWeeklyHours <= 168)) && p.rotateStandardShiftWeekly is bool;
+        (p.targetWeeklyHours == null || (p.targetWeeklyHours is number && p.targetWeeklyHours >= 0 && p.targetWeeklyHours <= 168)) && p.rotateStandardShiftWeekly is bool &&
+        (p.standardShiftTemplateId == null || safeV3Id(p.standardShiftTemplateId)) &&
+        (p.rotationAlternateShiftTemplateId == null || safeV3Id(p.rotationAlternateShiftTemplateId)) &&
+        (p.rotationAnchorWeekStart == null || v3Date(p.rotationAnchorWeekStart));
+    }
+    function validScheduleDraftV3(tenantId, draftId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['id','tenantId','schemaVersion','periodType','periodStart','periodEnd','config','employees','absences','options','updatedBy','revision','shiftDocumentIds']) &&
+        d.keys().hasOnly(['id','tenantId','schemaVersion','periodType','periodStart','periodEnd','config','employees','absences','options','updatedBy','revision','shiftDocumentIds','sourcePublicationId']) &&
+        d.tenantId == tenantId && d.schemaVersion == 3 && d.id == draftId && safeV3Id(d.id) && d.periodType in ['WEEK','MONTH'] &&
+        v3Date(d.periodStart) && v3Date(d.periodEnd) && d.periodStart <= d.periodEnd && d.revision is int && d.revision >= 0 &&
+        d.updatedBy == request.auth.uid && d.config is map && d.config.tenantId == tenantId && d.config.schemaVersion == 3 &&
+        d.employees is list && d.absences is list && d.options is map && d.shiftDocumentIds is list && d.shiftDocumentIds.size() <= 450 &&
+        (!('sourcePublicationId' in d) || safeV3Id(d.sourcePublicationId));
     }
     function validDraftShiftV3() {
       let d = request.resource.data;
@@ -674,7 +697,7 @@ service cloud.firestore {
 
       match /scheduleDrafts/{draftId} {
         allow read: if isTenantAdmin(tenantId);
-        allow create, update: if isTenantAdmin(tenantId) && request.resource.data.tenantId == tenantId && request.resource.data.schemaVersion == 3 && request.resource.data.id == draftId && request.resource.data.config.tenantId == tenantId && request.resource.data.updatedBy == request.auth.uid;
+        allow create, update: if isTenantAdmin(tenantId) && validScheduleDraftV3(tenantId, draftId);
         allow delete: if false;
       }
       match /schedulePublicationCounters/{periodKey} {

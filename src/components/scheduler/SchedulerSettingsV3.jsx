@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { calculateShiftDurationHoursV3, validateSchedulerConfigV3 } from '../../scheduler-engine-v3/index.ts';
+import { calculateShiftDurationHoursV3, validateSchedulerConfigV3, applySimpleRotationV3 } from '../../scheduler-engine-v3/index.ts';
 import QuarterHourTimePicker from './QuarterHourTimePicker';
 
 const days={MONDAY:'Δευτέρα',TUESDAY:'Τρίτη',WEDNESDAY:'Τετάρτη',THURSDAY:'Πέμπτη',FRIDAY:'Παρασκευή',SATURDAY:'Σάββατο',SUNDAY:'Κυριακή'};
@@ -14,8 +14,9 @@ export default function SchedulerSettingsV3({ config, employees, onSave, busy=fa
   const validation=validateSchedulerConfigV3(draft);
   const updateDay=(index,patch)=>setDraft(c=>({...c,operatingDays:c.operatingDays.map((d,n)=>n===index?{...d,...patch}:d)}));
   const updateTemplate=(index,patch)=>setDraft(c=>({...c,shiftTemplates:c.shiftTemplates.map((t,n)=>{if(n!==index)return t;const next={...t,...patch};return {...next,durationHours:calculateShiftDurationHoursV3(next.startTime,next.endTime,next.crossMidnight)};})}));
-  const updateProfile=(index,patch)=>setProfiles(list=>list.map((e,n)=>n===index?{...e,schedulerV3:{...e.schedulerV3,...patch}}:e));
-  return <form onSubmit={e=>{e.preventDefault();if(validation.valid)onSave(draft,profiles);}} className="space-y-5" aria-label="Ρυθμίσεις προγράμματος V3">
+  const updateProfile=(index,patch)=>setProfiles(list=>list.map((e,n)=>n===index?{...e,schedulerV3:applySimpleRotationV3({...e.schedulerV3,...patch},draft.shiftTemplates).profile}:e));
+  const rotationResults=profiles.map(e=>applySimpleRotationV3(e.schedulerV3,draft.shiftTemplates));
+  return <form onSubmit={e=>{e.preventDefault();if(validation.valid)onSave(draft,profiles.map((p,n)=>({...p,schedulerV3:rotationResults[n].profile})));}} className="space-y-5" aria-label="Ρυθμίσεις προγράμματος V3">
     <fieldset disabled={busy} className="space-y-5">
     <legend className="text-lg font-bold">Ρυθμίσεις προγράμματος</legend>
     <div className="grid gap-3 sm:grid-cols-2">{draft.operatingDays.map((day,index)=><fieldset className="rounded border border-slate-500 p-3 space-y-2" key={day.weekday}><legend>{days[day.weekday]}</legend>
@@ -47,9 +48,9 @@ export default function SchedulerSettingsV3({ config, employees, onSave, busy=fa
       <label>Συμμετοχή<select className="input-glass block rounded p-2" value={e.schedulerV3.workMode} onChange={x=>updateProfile(index,{workMode:x.target.value})}><option value="NORMAL">Κανονική</option><option value="SUBSTITUTE_ONLY">Μόνο χειροκίνητη κάλυψη</option></select></label>
       <label>Σταθερό ρεπό<select className="input-glass block rounded p-2" value={e.schedulerV3.fixedDayOff??''} onChange={x=>updateProfile(index,{fixedDayOff:x.target.value===''?null:Number(x.target.value)})}><option value="">Χωρίς</option>{['Κυριακή','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο'].map((d,n)=><option value={n} key={n}>{d}</option>)}</select></label>
       <label>Στόχος εβδομαδιαίων ωρών<input className="input-glass block w-28 rounded p-2" type="number" min="0" max="168" step="0.25" value={e.schedulerV3.targetWeeklyHours??''} onChange={x=>updateProfile(index,{targetWeeklyHours:x.target.value===''?null:Number(x.target.value)})}/></label>
-      {['standardShiftTemplateId','rotationAlternateShiftTemplateId'].map((key,n)=><label key={key}>{n?'Εναλλακτική βάρδια':'Τυπική βάρδια'}<select className="input-glass block rounded p-2" value={e.schedulerV3[key]??''} onChange={x=>updateProfile(index,{[key]:x.target.value||null})}><option value="">Χωρίς</option>{draft.shiftTemplates.map(t=><option value={t.id} key={t.id}>{t.label}</option>)}</select></label>)}
-      <label><input type="checkbox" checked={e.schedulerV3.rotateStandardShiftWeekly} onChange={x=>updateProfile(index,{rotateStandardShiftWeekly:x.target.checked})}/> Εβδομαδιαία εναλλαγή</label>
-      <label>Εβδομάδα αναφοράς<input className="input-glass block rounded p-2" type="date" value={e.schedulerV3.rotationAnchorWeekStart??''} onChange={x=>updateProfile(index,{rotationAnchorWeekStart:x.target.value||null})}/></label>
+      <label>Τυπική βάρδια<select className="input-glass block rounded p-2" value={e.schedulerV3.standardShiftTemplateId??''} onChange={x=>updateProfile(index,{standardShiftTemplateId:x.target.value||null})}><option value="">Χωρίς</option>{draft.shiftTemplates.filter(t=>t.isActive).map(t=><option value={t.id} key={t.id}>{t.label}</option>)}</select></label>
+      <label><input type="checkbox" checked={e.schedulerV3.rotateStandardShiftWeekly} onChange={x=>updateProfile(index,{rotateStandardShiftWeekly:x.target.checked})}/> Αλλαγή βάρδιας κάθε εβδομάδα</label>
+      {rotationResults[index].warning&&<p role="status">{rotationResults[index].warning}</p>}
     </fieldset>)}
     {!validation.valid&&<div role="alert">{validation.errors.join(' ')}</div>}
     <button className={button} disabled={!validation.valid}>Αποθήκευση ρυθμίσεων</button>

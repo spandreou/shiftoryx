@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { connectAuthEmulator, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { connectFirestoreEmulator, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { connectFirestoreEmulator, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { connectStorageEmulator, ref, deleteObject } from 'firebase/storage';
 import { auth, db, storage } from '../src/firebase/config.js';
 import { schedulePublicationsRepository as repository } from '../src/repositories/schedulePublicationsRepository.ts';
-import { makeDefaultConfigV3, mapEmployeesV3, createDraftV3 } from '../src/services/schedulerV3Service.ts';
+import { makeDefaultConfigV3, mapEmployeesV3, createDraftV3, createDraftFromPublicationV3 } from '../src/services/schedulerV3Service.ts';
 import { buildPublicationV3 } from '../src/services/schedulePublicationService.ts';
 
 async function main() {
@@ -23,13 +23,28 @@ async function main() {
   await seed('tenants/tenant-a/employees/a',{fullName:'Μαρία'});
   const employees=mapEmployeesV3([{id:'a',fullName:'Μαρία',isActive:true}]);const config=makeDefaultConfigV3('tenant-a');
   console.log('CHECK settings');
+  const settingsRef=doc(db,'tenants/tenant-a/settings/scheduler');
+  await setDoc(settingsRef,{schedulerSchemaVersion:2});
   await repository.saveSettings(config,employees);
-  assert.equal((await getDoc(doc(db,'tenants/tenant-a/settings/scheduler'))).data().schedulerSchemaVersion,3);
+  assert.equal((await getDoc(settingsRef)).data().schedulerSchemaVersion,2,'save must not activate V3');
+  await updateDoc(settingsRef,{schedulerSchemaVersion:3}); // Explicit test-fixture activation only.
+  assert.equal((await getDoc(settingsRef)).data().schedulerSchemaVersion,3);
+  await repository.saveSettings(config,employees);
+  assert.equal((await getDoc(settingsRef)).data().schedulerSchemaVersion,3,'save must preserve active V3');
+  const denied=async(operation,label)=>assert.rejects(operation,error=>error.code==='permission-denied',label);
+  console.log('CHECK malformed profile fields denied');
+  for(const field of ['standardShiftTemplateId','rotationAlternateShiftTemplateId'])for(const value of [{},[],12,'','../unsafe','x'.repeat(101)])await denied(()=>updateDoc(doc(db,'tenants/tenant-a/employees/a'),{['schedulerV3.'+field]:value}),field);
+  for(const value of [{},[],12,'','not-a-date','2026-99-99','2026-02-31','2026-04-31','2026-02-29','1900-02-29','2100-02-29'])await denied(()=>updateDoc(doc(db,'tenants/tenant-a/employees/a'),{'schedulerV3.rotationAnchorWeekStart':value}),'anchor');
+  for(const value of ['2024-02-29','2000-02-29','2400-02-29'])await updateDoc(doc(db,'tenants/tenant-a/employees/a'),{'schedulerV3.rotationAnchorWeekStart':value});
+  await updateDoc(doc(db,'tenants/tenant-a/employees/a'),{'schedulerV3.rotationAnchorWeekStart':null});
   const draft=createDraftV3({config,employees,absences:[],periodStart:'2026-09-07',periodEnd:'2026-09-13',periodType:'WEEK',options:{balanceWeeklyTargets:true}},'emulator-draft');
   console.log('CHECK draft roundtrip');
   await repository.saveDraft(draft);const loaded=await repository.loadDraft('tenant-a',draft.id);assert.equal(loaded.shifts.length,draft.shifts.length);
   loaded.shifts.pop();await repository.saveDraft(loaded);assert.equal((await repository.loadDraft('tenant-a',draft.id)).shifts.length,loaded.shifts.length);
   await assert.rejects(()=>repository.saveDraft(loaded),'stale draft revision rejected');
+  console.log('CHECK malformed draft fields denied');
+  const draftRef=doc(db,'tenants/tenant-a/scheduleDrafts',draft.id);
+  for(const patch of [{periodType:'YEAR'},{periodStart:'bad'},{periodStart:'2026-02-31',periodEnd:'2026-03-01'},{periodStart:'2100-02-29',periodEnd:'2100-03-01'},{periodEnd:'2026-09-31'},{periodEnd:[]},{periodEnd:'2026-09-01'},{revision:-1},{revision:1.5},{revision:'1'},{'config.tenantId':'tenant-b'},{id:'other'},{unexpected:'field'}])await denied(()=>updateDoc(draftRef,patch),'malformed draft');
   console.log('CHECK concurrent reservations');
   const key='WEEK_2026-09-07_2026-09-13';const versions=await Promise.all([repository.reserve('tenant-a',key,'pub-a'),repository.reserve('tenant-a',key,'pub-b')]);
   assert.deepEqual([...versions].sort(),[1,2]);
@@ -41,6 +56,18 @@ async function main() {
   for(const snapshot of [...snapshots].sort((a,b)=>b.version-a.version))await repository.finalize(snapshot);
   assert.equal((await getDoc(doc(db,'tenants/tenant-a/schedulePublicationPeriods',key))).data().latestVersion,2);
   assert.equal((await repository.list('tenant-a')).length,2);
+  console.log('CHECK draft from v1 publishes at current counter v4');
+  const old= snapshots.find(s=>s.version===1);const oldBytes=new Uint8Array(await repository.download('tenant-a',old.id));
+  const third={...old,id:'pub-third',version:await repository.reserve('tenant-a',key,'pub-third')};
+  await repository.uploadPdf('tenant-a',`tenants/tenant-a/schedule-publications/pub-third/schedule.pdf`,oldBytes);
+  third.pdfStoragePath='tenants/tenant-a/schedule-publications/pub-third/schedule.pdf';await repository.finalize(third);
+  const restored=createDraftFromPublicationV3(old,{id:'from-v1',tenantId:'tenant-a',employees,absences:[]});
+  await repository.saveDraft(restored);assert.equal((await repository.loadDraft('tenant-a','from-v1')).sourcePublicationId,old.id);
+  const version4=await repository.reserve('tenant-a',key,'pub-fourth');assert.equal(version4,4);
+  const fourth=buildPublicationV3(restored,{tenantId:'tenant-a',uid:user.uid,id:'pub-fourth',version:version4,timestamp:'2026-09-09T00:00:00Z'});
+  await repository.uploadPdf('tenant-a',fourth.pdfStoragePath,oldBytes);await repository.finalize(fourth);
+  assert.deepEqual(new Uint8Array(await repository.download('tenant-a',old.id)),oldBytes);
+  assert.deepEqual((await getDoc(doc(db,'tenants/tenant-a/schedulePublications',old.id))).data(),JSON.parse(JSON.stringify(old)));
   assert.equal((await getDoc(doc(db,'tenants/tenant-a/publicMonths/2026-09'))).data().shiftCount,draft.shifts.length);
   console.log('CHECK month clears stale weekly projections');
   const monthDraft={...draft,periodType:'MONTH',periodStart:'2026-09-01',periodEnd:'2026-09-30',shifts:[]};

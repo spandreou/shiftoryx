@@ -234,13 +234,13 @@ No permanent public URL. Download through authorized Firebase Storage SDK.
 ## 9. Implemented Integration And Verification (8 September 2026)
 
 - Activation requires `VITE_ENABLE_SCHEDULER_V3=true` and tenant settings `schedulerSchemaVersion: 3`. The default is off. Repository operations also enforce the global flag. Existing broker/gate flags are unchanged.
-- V3 settings and employee profiles are saved atomically. The V3 workspace includes employee creation/deactivation and the existing absence editor.
+- V3 settings and employee profiles are saved atomically without changing `schedulerSchemaVersion`. Tenant activation is a separate, explicitly approved operation; there is no production activation control in the settings form. The V3 workspace includes employee creation/deactivation and the existing absence editor.
 - The primary scheduling workspace is V3. A separate disclosure retains previous schedules, exports and tools; legacy public refresh/month-clear actions are gated for a V3 tenant and cannot replace the new publication projections.
 - Drafts use `shifts` with `schedulerSchemaVersion: 3` and `draftId`, plus private `scheduleDrafts` metadata. Revision checks reject stale saves. Reads reconstruct one consistent transaction snapshot. Legacy bulk reads/clear operations exclude V3 draft rows.
 - Publication version reservation is transactional and bound to the publication ID. PDF upload precedes publication visibility. Snapshot, latest-period pointer and intersecting public week/month projections commit together. Published snapshots and PDFs deny overwrite/delete.
 - Public projections contain only display names, dates, times, work labels and non-sensitive V3/cross-midnight markers; internal IDs, warning details and profile data stay private. Public overnight analytics use the explicit V3 marker.
 - `previewV2Migration` is an offline preview function. Role/skill demand, replacement strategies, special dates and special Sunday policies are reported for owner review rather than silently migrated. It performs no writes.
-- `npm run test:scheduler-contract-v3`: 304 engine cases and 17 service cases. The service cases include real PDF generation, privacy allowlists and publication failure ordering.
+- `npm run test:scheduler-contract-v3`: 304 engine cases, 17 service cases and 8 PR #57 corrective cases. The service cases include real PDF generation, privacy allowlists and publication failure ordering.
 - V2 contract suite: 2,118 assertions unchanged. Browser coverage: three existing V2 tests plus V3 mobile and desktop tests. Emulator coverage exercises the actual V3 repository, concurrent reservations, draft roundtrips, stale saves, immutable snapshot/PDF denial and tenant/identity boundaries.
 
 Technical limits and follow-up before production activation:
@@ -255,3 +255,12 @@ Technical limits and follow-up before production activation:
 Partial-day absences currently have no time bounds and conservatively exclude their full date from automatic assignment. V2 break-adjusted durations require review during preview migration because V3 templates represent gross time spans.
 
 Emulator testing uses `scripts/run-scheduler-v3-emulator.mjs` inside Firebase `emulators:exec` for demo project `demo-shiftoryx-v3`. Run the emulator from a temporary directory with a config referencing this checkout's Rules; debug logs must remain outside the checkout.
+
+## 10. PR #57 corrective contract (9 September 2026)
+
+- Newly discovered employees keep all seven current normalized V3 profile fields when appended to an open draft; zero-hour statistics, warnings and subsequent generation use that profile.
+- Normal profile controls expose standard shift and weekly-rotation toggle only. A unique active opposite MORNING/AFTERNOON template is selected automatically. Missing, ambiguous, INTERMEDIATE and CUSTOM patterns warn without guessing. Existing anchors are preserved; a new anchor uses the deterministic Monday `2026-01-05`.
+- Adding an assignment opens an inline form and creates no shift until confirmation. Replacing the draft resets pending form state. New choices are active-only. Existing inactive assignments remain visible with warnings. Time choices are quarter-hour selects, not text inputs.
+- History includes period, type, version, publication time, employee/hour totals and warning status, plus read-only view, authorized stored-PDF download and create-new-draft actions. Restoration clones shifts and historical config, records `sourcePublicationId`, reconciles current employee profiles and starts a fresh draft revision. Republishing reserves the current period counter, so restoring v1 after v3 produces v4. Original snapshots and PDF bytes remain unchanged.
+- Unknown template references are technical errors, not permission to silently rewrite current profiles or historical templates. Incompatible historical/current configuration requires explicit reconciliation before restoration can proceed.
+- Firestore validates every employee profile field and the draft metadata allowlist, identity/tenant/config binding, calendar-valid ISO dates (including leap years), date order and revision type/range. Existing OWNER/tenant authorization and publication/PDF immutability remain enforced.

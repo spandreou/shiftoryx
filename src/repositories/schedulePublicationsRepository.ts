@@ -29,7 +29,7 @@ export const schedulePublicationsRepository={
       if(!validateEmployeeProfileV3(employee.schedulerV3,ids).valid)throw new Error('Μη έγκυρο προφίλ.');
       batch.update(doc(db,c.root,'employees',idCheck(employee.id)),{schedulerV3:clean(employee.schedulerV3)});
     }
-    batch.set(doc(db,c.root,'settings','scheduler'),{schedulerSchemaVersion:3,schedulerConfigV3:clean(config)},{merge:true});
+    batch.set(doc(db,c.root,'settings','scheduler'),{schedulerConfigV3:clean(config)},{merge:true});
     await batch.commit();
   },
   async saveDraft(draft:DraftV3) {
@@ -45,7 +45,7 @@ export const schedulePublicationsRepository={
       removedIds.forEach(id=>tx.delete(doc(db,c.root,'shifts',idCheck(id))));
       draft.shifts.forEach((s,n)=>tx.set(doc(db,c.root,'shifts',shiftDocumentIds[n]),clean({...s,type:'work',schedulerSchemaVersion:3,draftId:draft.id})));
       const revision=(draft.revision||0)+1;
-      tx.set(metadata,clean({id:draft.id,tenantId:c.tenant,schemaVersion:3,periodType:draft.periodType,periodStart:draft.periodStart,periodEnd:draft.periodEnd,config:draft.config,employees:draft.employees,absences:draft.absences,options:draft.options,updatedBy:c.uid,revision,shiftDocumentIds}));
+      tx.set(metadata,clean({id:draft.id,tenantId:c.tenant,schemaVersion:3,periodType:draft.periodType,periodStart:draft.periodStart,periodEnd:draft.periodEnd,config:draft.config,employees:draft.employees,absences:draft.absences,options:draft.options,updatedBy:c.uid,revision,shiftDocumentIds,...(draft.sourcePublicationId?{sourcePublicationId:draft.sourcePublicationId}:{})}));
       return revision;
     });
   },

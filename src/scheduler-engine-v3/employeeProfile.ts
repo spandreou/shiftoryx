@@ -177,6 +177,17 @@ export function resolveRotationAlternateTemplate(
   return { alternateId: null, ambiguous: true };
 }
 
+/** Normal OWNER controls only choose a standard shift and toggle weekly rotation. */
+export function applySimpleRotationV3(profile:EmployeeSchedulingProfileV3,templates:ShiftTemplateV3[]):{profile:EmployeeSchedulingProfileV3;warning:string|null} {
+  const next=normalizeEmployeeProfileV3(profile);
+  if(!next.rotateStandardShiftWeekly)return {profile:next,warning:null};
+  const standard=templates.find(t=>t.id===next.standardShiftTemplateId&&t.isActive);
+  const alternate=standard?resolveRotationAlternateTemplate(standard.id,templates):{alternateId:null,ambiguous:false};
+  next.rotationAlternateShiftTemplateId=alternate.alternateId;
+  next.rotationAnchorWeekStart=next.rotationAnchorWeekStart||'2026-01-05';
+  return {profile:next,warning:alternate.alternateId?null:alternate.ambiguous?'Υπάρχουν περισσότερες από μία αντίθετες βάρδιες. Διόρθωσε τα ενεργά πρότυπα.':'Η εβδομαδιαία αλλαγή χρειάζεται μία ενεργή πρωινή και μία απογευματινή βάρδια.'};
+}
+
 /**
  * Convert a fixedDayOff number (0=Sunday..6=Saturday) to a Weekday string.
  */
