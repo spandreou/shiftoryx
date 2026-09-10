@@ -31,6 +31,7 @@ import { verifyTenantAccessForHost, TENANT_ACCESS_MESSAGES } from '../services/t
 import { formatDateGreek, getIsoDate, getMonday, getWeekDays, isValidTimeLabel, timeToMinutes } from '../utils/time';
 import { getCurrentTenantHostContext } from '../utils/tenantHostContext';
 import { mergeSchedulerConfigSpecialDays, validateSchedulerConfig } from '../scheduler-engine';
+import { buildV3EmployeePayload } from '../services/schedulerV3Service.ts';
 
 const isFirebaseConfigured = authRepository.isPersistenceConfigured();
 const firebaseConfigErrorMessage = authRepository.getPersistenceErrorMessage?.() || '';
@@ -1453,6 +1454,24 @@ export const useSchedulerStore = create((set, get) => ({
       });
     } catch {
       set({ warningMessage: 'Αποτυχία αναίρεσης ενέργειας.' });
+    }
+  },
+
+  addEmployeeV3: async ({ fullName }) => {
+    if (!requireAdmin(get, set)) return false;
+    try {
+      const payload = buildV3EmployeePayload({ fullName });
+      const createdEmployee = await employeesRepository.createEmployee({ tenantId: getPublicTenantId(), ...payload });
+      if (!createdEmployee?.id) throw new Error('Η προσθήκη δεν επέστρεψε έγκυρο εργαζόμενο.');
+      // A subscription may have arrived first; never overwrite that newer record.
+      set(state => ({ employees: state.employees.some(e => e.id === createdEmployee.id) ? state.employees : [...state.employees, createdEmployee] }));
+      await recordAuditLog(get, { action: 'employee.create', target: { collection: 'employees', id: createdEmployee.id }, before: null, after: createdEmployee });
+      const published = await get().refreshPublicEmployeesSnapshot(get().employees);
+      set({ warningMessage: published ? 'Ο εργαζόμενος προστέθηκε.' : 'Ο εργαζόμενος προστέθηκε, αλλά η δημόσια λίστα δεν ενημερώθηκε.' });
+      return true;
+    } catch (error) {
+      set({ warningMessage: error?.message || 'Η προσθήκη εργαζομένου απέτυχε.' });
+      return false;
     }
   },
 

@@ -64,6 +64,7 @@ export default function ProgramHistoryPanel({
   actionLoading = {},
   onCreateMonthlyArchive,
   onDownloadMonthlyArchive,
+  canCreateMonthlyArchive = true,
 }) {
   const [mode, setMode] = useState('month');
   const [selectedEntryId, setSelectedEntryId] = useState('');
@@ -272,7 +273,7 @@ export default function ProgramHistoryPanel({
                 <p className="text-[11px] text-slate-700 dark:text-slate-300">Ιδιωτικό αρχείο, διαθέσιμο μόνο σε διαχειριστή.</p>
               </div>
             </div>
-            <button
+            {canCreateMonthlyArchive&&<button
               type="button"
               onClick={onCreateMonthlyArchive}
               disabled={!isMonthlyArchiveEnabled || isCreatingArchive}
@@ -280,7 +281,7 @@ export default function ProgramHistoryPanel({
             >
               {isCreatingArchive ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
               Αποθήκευση PDF μήνα
-            </button>
+            </button>}
           </div>
 
           {!isMonthlyArchiveEnabled ? (

@@ -12,7 +12,7 @@ const emptyForm = {
   hireDate: '',
 };
 
-export default function EmployeeProfileModal({ open, employee, isAdmin, onClose, onSave }) {
+export default function EmployeeProfileModal({ open, employee, isAdmin, onClose, onSave, showRole=true }) {
   const [form, setForm] = useState(emptyForm);
   const [hireDateInput, setHireDateInput] = useState('');
 
@@ -79,7 +79,7 @@ export default function EmployeeProfileModal({ open, employee, isAdmin, onClose,
             />
           </label>
 
-          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          {showRole&&<label className="text-sm font-medium text-slate-900 dark:text-slate-100">
             Ρόλος
             <input
               value={form.role}
@@ -87,7 +87,7 @@ export default function EmployeeProfileModal({ open, employee, isAdmin, onClose,
               className="input-glass mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-950 font-semibold outline-none ring-brand-300/50 transition focus:ring-2 placeholder:text-slate-500 dark:border-cyan-300/45 dark:text-white dark:placeholder:text-slate-400"
               disabled={!isAdmin}
             />
-          </label>
+          </label>}
 
           <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
             Χρώμα

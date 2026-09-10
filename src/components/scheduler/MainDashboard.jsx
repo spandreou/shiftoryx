@@ -17,7 +17,8 @@ import AnalyticsPanel from './AnalyticsPanel';
 import ProgramHistoryPanel from './ProgramHistoryPanel';
 import SchedulingRulesPanel from './SchedulingRulesPanel';
 import SchedulerWorkspaceV3, { SchedulerSetupV3 } from './SchedulerWorkspaceV3';
-import { isSchedulerV3Active } from '../../services/schedulerV3Service.ts';
+import SchedulerToolsV3 from './SchedulerToolsV3';
+import { isSchedulerV3Active, buildV3ExportPayload } from '../../services/schedulerV3Service.ts';
 import { validateSchedulerConfigV3 } from '../../scheduler-engine-v3/config.ts';
 import SchedulerSidebar from './SchedulerSidebar';
 import SpecialDaysPanel from './SpecialDaysPanel';
@@ -973,6 +974,39 @@ export default function MainDashboard() {
     return true;
   }
 
+  async function handleExportV3Draft(draft, format) {
+    await runActionWithFeedback({
+      actionKey: 'exportV3'+format,
+      loadingMessage: 'Προετοιμασία εξαγωγής προσχεδίου...',
+      execute: async () => {
+        const payload = {...buildV3ExportPayload(draft), weekdayLabels: WEEKDAY_LABELS};
+        const first=payload.weekDays[0], last=payload.weekDays.at(-1);
+        const fileName=format==='EXCEL'?`program_excel_${first}_${last}.xlsx`:format==='WORD'?`program_word_${first}_${last}.docx`:'';
+        return runAdminExportWithAudit({
+          exportType:format,exportScope:draft.periodType,days:payload.weekDays,
+          month:draft.periodType==='MONTH'?first.slice(0,7):'',week:draft.periodType==='WEEK'?first:'',fileName,
+          recordCount:payload.shifts.length,shiftCount:payload.shifts.length,
+          performExport:async ({exportAuthorization,onBeforeDownload})=>{
+            if(format==='WHATSAPP') {const text=buildWhatsappSummary(payload);await onBeforeDownload();await navigator.clipboard.writeText(text);return;}
+            const exporters=await loadExportService();
+            const exportFile=format==='EXCEL'?exporters.exportScheduleToExcel:exporters.exportScheduleToWord;
+            await exportFile({...payload,exportAuthorization,onBeforeDownload});
+          },
+        });
+      },
+      errorMessageFallback:'Η εξαγωγή προσχεδίου απέτυχε.',pendingMessage:'Εξαγωγή προσχεδίου...',
+      retryAction:()=>handleExportV3Draft(draft,format),
+    });
+  }
+
+  function renderV3Tools(draft) {
+    return <SchedulerToolsV3 draft={draft} onExportDraft={handleExportV3Draft} busy={Object.values(actionLoading).some(Boolean)}
+      announcementProps={{announcements:displayAnnouncements,isAdmin,isSaving,onAddAnnouncement:addAnnouncement,onDeleteAnnouncement:deleteAnnouncement}}
+      historyProps={{isAdmin,employees,weekHistory,monthlyArchives,isMonthlyArchiveEnabled:isMonthlyPdfArchiveEnabled,isMonthlyArchiveLoading,selectedYear,selectedMonth,actionLoading,onDownloadMonthlyArchive:handleDownloadMonthlyArchive}}
+      historicalDays={weekDays} onPreviousWeek={goToPreviousWeek} onNextWeek={goToNextWeek}
+      onWeekPdf={handleExportWeekPdf} onMonthPdf={handleExportMonthPdf} onExcel={handleExportExcel} onWord={handleExportWord} onWhatsapp={handleCopyWhatsapp}/>;
+  }
+
   async function showExportSuccessBeforeDownload({ title, message }) {
     pushToast({
       type: 'success',
@@ -1406,7 +1440,7 @@ export default function MainDashboard() {
 
   const v3Active = isAdmin && isSchedulerV3Active(import.meta.env.VITE_ENABLE_SCHEDULER_V3, versionV3);
   const v3Workspace = v3Active ? (validateSchedulerConfigV3(configV3).valid
-    ? <SchedulerWorkspaceV3 key={`${configV3.tenantId}:${adminUser?.uid}`} config={configV3} employees={employees} absences={absences} uid={adminUser?.uid} onLogout={handleLogoutAdmin} />
+    ? <SchedulerWorkspaceV3 key={`${configV3.tenantId}:${adminUser?.uid}`} config={configV3} employees={employees} absences={absences} uid={adminUser?.uid} onLogout={handleLogoutAdmin} onOpenProfile={setProfileEmployee} renderTools={renderV3Tools} />
     : <p role="alert">Οι ρυθμίσεις V3 δεν είναι έγκυρες. Χρειάζεται διόρθωση πριν τη δημιουργία προγράμματος.</p>) : null;
 
   const dashboardContent = (
@@ -1823,7 +1857,10 @@ export default function MainDashboard() {
       </AdminDndShell>
     </Suspense>
   );
-  if (v3Active) return <>{v3Workspace}<details className="mx-auto max-w-6xl rounded border p-4"><summary>Προηγούμενα προγράμματα και εργαλεία</summary><p>Ιστορικό, εξαγωγές και εργαλεία V2. Οι αλλαγές εδώ αφορούν τα προηγούμενα προγράμματα, όχι το ανοιχτό προσχέδιο V3.</p>{legacyTools}</details></>;
+  if (v3Active) return <>{v3Workspace}
+    <Suspense fallback={null}><EmployeeProfileModal open={Boolean(profileEmployee)} employee={profileEmployee} isAdmin={isAdmin} showRole={false} onClose={handleCloseProfileModal} onSave={handleSaveProfile}/></Suspense>
+    <ToastStack toasts={toasts} onDismiss={dismissToast}/>
+  </>;
   return legacyTools;
 }
 

@@ -1,5 +1,6 @@
 import { analyzeScheduleWarningsV3, assertV3Input, calculateEmployeeHoursV3, calculateWeeklyEmployeeHoursV3, calculateCoverageSummary, generateScheduleV3, normalizeEmployeeProfileV3, requireEmployeeProfileV3 } from '../scheduler-engine-v3/index.ts';
 import type { GenerateScheduleV3Input, GeneratedShiftV3, SchedulerConfigV3, EmployeeV3, SchedulePublicationV3 } from '../scheduler-engine-v3/types.ts';
+import { eachDateInRange } from '../scheduler-engine-v3/coverage.ts';
 
 export function isSchedulerV3Active(globalFlag: unknown, tenantVersion: unknown): boolean {
   return (globalFlag === true || globalFlag === 'true') && tenantVersion === 3;
@@ -24,6 +25,12 @@ export type DraftV3 = GenerateScheduleV3Input & { id: string; shifts: GeneratedS
 /** Historical draft profiles resolve only against the draft's stored config. */
 export function decodeDraftProfilesV3(draft:DraftV3):DraftV3 {
   return {...draft,employees:mapEmployeesV3(draft.employees,draft.config)};
+}
+
+/** V3 creation has no legacy scheduling defaults and never infers participation. */
+export function buildV3EmployeePayload(input: {fullName:string}) {
+  if(typeof input.fullName!=='string'||!input.fullName.trim()||input.fullName.trim().length>200) throw new Error('Το ονοματεπώνυμο πρέπει να έχει 1–200 χαρακτήρες.');
+  return {fullName:input.fullName.trim(),color:'#1D4ED8',isActive:true,schedulerV3:normalizeEmployeeProfileV3()};
 }
 export function createDraftFromPublicationV3(publication:SchedulePublicationV3, options:{id?:string;tenantId?:string;employees?:Array<Record<string,unknown>>;currentConfig?:SchedulerConfigV3;absences?:Array<Record<string,any>>}={}):DraftV3 {
   if(publication.tenantId !== (options.tenantId ?? publication.tenantId) || publication.templateSnapshot.tenantId !== publication.tenantId) throw new Error('Μη έγκυρο κατάστημα δημοσίευσης.');
@@ -60,6 +67,15 @@ export function editDraftV3(draft: DraftV3, shifts: GeneratedShiftV3[]): DraftV3
   const next = { ...draft, shifts: structuredClone(shifts) };
   analyzeDraftV3(next);
   return next;
+}
+/** Explicit current-draft export payload; no private profile or legacy-role metadata. */
+export function buildV3ExportPayload(draft: DraftV3) {
+  analyzeDraftV3(draft);
+  return {
+    weekDays:eachDateInRange(draft.periodStart,draft.periodEnd),
+    employees:draft.employees.filter(e=>e.isActive||draft.shifts.some(s=>s.employeeId===e.id)).map(e=>({id:e.id,fullName:e.fullName})),
+    shifts:draft.shifts.map(s=>({id:s.id,employeeId:s.employeeId,date:s.date,startTime:s.startTime,endTime:s.endTime,durationHours:s.durationHours,crossMidnight:Boolean(s.crossMidnight),schedulerSchemaVersion:3,type:'work',label:'ΕΡΓ',shiftType:'custom'})),
+  };
 }
 export function makeDefaultConfigV3(tenantId: string): SchedulerConfigV3 {
   const weekdays = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'] as const;

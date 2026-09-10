@@ -7,7 +7,7 @@ for (const width of [390,1440]) test(`V3 draft and settings at ${width}px`,async
   await page.setViewportSize({width,height:900});
   await page.goto(url);await page.waitForFunction(()=>window.__gasStationSchedulerStore);
   const config=makeDefaultConfigV3('tenant-a');
-  config.shiftTemplates.push({...config.shiftTemplates[0],id:'afternoon',label:'Απόγευμα',shiftType:'AFTERNOON',startTime:'16:00',endTime:'20:00',durationHours:4});
+  config.shiftTemplates.push({...config.shiftTemplates[0],id:'afternoon',label:'Απόγευμα',shiftType:'AFTERNOON',startTime:'16:00',endTime:'00:00',durationHours:8,crossMidnight:true});
   await page.evaluate(config=>{
     const store=window.__gasStationSchedulerStore;store.getState().cleanupData();
     store.setState({isAdmin:true,adminUser:{uid:'test-owner',tenantId:'tenant-a'},isLoading:false,isAuthLoading:false,schedulerSchemaVersion:3,schedulerConfigV3:config,employees:[{id:'a',fullName:'Μαρία',isActive:true},{id:'b',fullName:'Νίκος',isActive:true},{id:'inactive',fullName:'Ανενεργός',isActive:false,email:'PRIVATE_EMAIL',phone:'PRIVATE_PHONE',afm:'PRIVATE_AFM'}],absences:[]});
@@ -24,11 +24,12 @@ for (const width of [390,1440]) test(`V3 draft and settings at ${width}px`,async
   await expect(page.getByRole('button',{name:'Δημοσίευση νέας έκδοσης'})).toBeEnabled();
   await page.getByText('Ρυθμίσεις και προφίλ εργαζομένων',{exact:true}).click();
   await expect(page.getByRole('form',{name:'Ρυθμίσεις προγράμματος V3'})).toBeVisible();
+  await page.getByText('Λειτουργία και κάλυψη καταστήματος',{exact:true}).click();
   await page.getByRole('button',{name:'Προσθήκη βάρδιας',exact:true}).click();
   await expect(page.getByRole('button',{name:'Διαγραφή Νέα βάρδια'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await workspace.screenshot({path:info.outputPath(`v3-${width}.png`)});
-  await page.getByText('Προηγούμενα προγράμματα και εργαλεία',{exact:true}).click();
+  await expect(page.getByText('Παλαιότερα προγράμματα — μόνο εξαγωγή',{exact:true})).toBeVisible();
   await expect(page.getByText('Πίνακας Ανακοινώσεων',{exact:true})).toBeVisible();
   await expect(workspace.getByRole('button',{name:'Αφαίρεση βάρδιας'})).toHaveCount(5);
   const legacyWriteResults=await page.evaluate(async()=>{
@@ -54,18 +55,24 @@ for (const width of [390,1440]) test(`V3 draft and settings at ${width}px`,async
   await expect(workspace.getByLabel('Εναλλακτική βάρδια',{exact:true})).toHaveCount(0);
   await expect(workspace.getByLabel('Εβδομάδα αναφοράς',{exact:true})).toHaveCount(0);
   await page.evaluate(async()=>{
-    const {schedulePublicationsRepository:repo}=await import('/src/repositories/schedulePublicationsRepository.ts');
+    const path='/src/repositories/schedulePublicationsRepository.ts';
+    const url=performance.getEntriesByType('resource').map(e=>e.name).findLast(url=>new URL(url).pathname===path)||path;
+    const {schedulePublicationsRepository:repo}=await import(url);
     repo.saveSettings=async(config,profiles)=>{window.__savedV3Profiles=profiles;};
   });
-  const maria=workspace.getByRole('group',{name:'Μαρία',exact:true});
-  await maria.getByRole('combobox',{name:'Τυπική βάρδια',exact:true}).selectOption('day');
+  const maria=workspace.getByRole('form',{name:'Ρυθμίσεις προγράμματος V3'});
+  await maria.getByRole('combobox',{name:'Εργαζόμενος',exact:true}).selectOption('a');
+  await maria.getByRole('combobox',{name:'Τυπική έναρξη',exact:true}).selectOption('08:00');
+  await maria.getByRole('combobox',{name:'Τυπική λήξη',exact:true}).selectOption('16:00');
   await maria.getByLabel('Αλλαγή βάρδιας κάθε εβδομάδα').check();
   await workspace.getByRole('button',{name:'Αποθήκευση ρυθμίσεων',exact:true}).click();
-  await expect.poll(()=>page.evaluate(()=>window.__savedV3Profiles?.find(e=>e.id==='a')?.schedulerV3.rotationAlternateShiftTemplateId)).toBe('afternoon');
+  await expect.poll(()=>page.evaluate(()=>window.__savedV3Profiles?.find(e=>e.id==='a')?.schedulerV3.rotationAlternateShift)).toEqual({startTime:'16:00',endTime:'00:00'});
   expect(await page.evaluate(()=>window.__savedV3Profiles.find(e=>e.id==='a').schedulerV3.rotationAnchorWeekStart)).toBe('2026-01-05');
   await page.evaluate(async()=>{
     const service=await import('/src/services/schedulerV3Service.ts');const publication=await import('/src/services/schedulePublicationService.ts');
-    const {schedulePublicationsRepository:repo}=await import('/src/repositories/schedulePublicationsRepository.ts');
+    const path='/src/repositories/schedulePublicationsRepository.ts';
+    const url=performance.getEntriesByType('resource').map(e=>e.name).findLast(url=>new URL(url).pathname===path)||path;
+    const {schedulePublicationsRepository:repo}=await import(url);
     const state=window.__gasStationSchedulerStore.getState();
     const d=service.createDraftV3({config:state.schedulerConfigV3,employees:service.mapEmployeesV3(state.employees),absences:[],periodType:'WEEK',periodStart:'2026-09-07',periodEnd:'2026-09-13',options:{balanceWeeklyTargets:true}},'history-fixture');
     window.__historyV3=publication.buildPublicationV3(d,{tenantId:'tenant-a',uid:'PRIVATE_AUTH_UID',id:'v1',version:1,timestamp:'2026-09-09T10:00:00Z'});
