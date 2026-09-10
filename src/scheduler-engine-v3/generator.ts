@@ -1,9 +1,10 @@
 import type { EmployeeV3, GeneratedShiftV3, GenerateScheduleV3Input, GenerateScheduleV3Result, EmployeeHoursSummaryV3 } from './types.ts';
 import { evaluateEmployeeEligibilityV3 } from './eligibility.ts';
 import { resolveEffectiveStandardShift, sameShiftTimesV3 } from './employeeProfile.ts';
-import { expandCoverageSlots, calculateCoverageSummary } from './coverage.ts';
+import { expandCoverageSlots, calculateCoverageSummary, eachDateInRange } from './coverage.ts';
 import { analyzeScheduleWarningsV3, getWeekStartV3 } from './warnings.ts';
 import { assertV3Input } from './validation.ts';
+import { shiftIntervalV3 } from './config.ts';
 
 const compare = (a:string,b:string) => a < b ? -1 : a > b ? 1 : 0;
 function hashInput(value:unknown):string {
@@ -17,6 +18,7 @@ export function generateScheduleV3(input:GenerateScheduleV3Input):GenerateSchedu
   assertV3Input(input);
   const {config,employees,absences,periodStart,periodEnd,options}=input;
   const active=employees.filter(e=>e.isActive).sort((a,b)=>compare(a.id,b.id));
+  const pools={NORMAL:active.filter(e=>e.schedulerV3.workMode==='NORMAL'),SUBSTITUTE_ONLY:active.filter(e=>e.schedulerV3.workMode==='SUBSTITUTE_ONLY')};
   const shifts:GeneratedShiftV3[]=(input.existingManualShifts||[]).map(s=>({...s}));
   const ids=new Set(shifts.map(s=>s.id));
   let counter=0;
@@ -26,28 +28,39 @@ export function generateScheduleV3(input:GenerateScheduleV3Input):GenerateSchedu
   for(const slot of slots){
     const template=slot.shiftTemplate;
     if(!template||!template.isActive)continue;
+    const interval=shiftIntervalV3(slot.date,template.startTime,template.endTime,template.crossMidnight);
+    const day=config.operatingDays.find(d=>d.weekday===slot.weekday);
+    if(!day?.windows.some(w=>{
+      const window=shiftIntervalV3(slot.date,w.openTime,w.closeTime,Boolean(w.crossMidnight));
+      return interval.start>=window.start&&interval.end<=window.end;
+    }))continue;
     if(shifts.filter(s=>s.date===slot.date&&s.shiftTemplateId===template.id).length>slot.slotIndex)continue;
     const weekStart=getWeekStartV3(slot.date,config.weekStartDay);
     const weekEnd=new Date(Date.parse(weekStart)+6*86400000).toISOString().slice(0,10);
-    const eligible=active.filter(e=>evaluateEmployeeEligibilityV3(e,slot.date,absences,shifts,template.startTime,{
+    const canAssign=(e:EmployeeV3)=>evaluateEmployeeEligibilityV3(e,slot.date,absences,shifts,template.startTime,{
       ...config.warningPolicies,weekStartDate:weekStart,weekEndDate:weekEnd,
       shiftEndTime:template.endTime,shiftDurationHours:template.durationHours,crossMidnight:template.crossMidnight,
-    }).eligible);
-    const cursor=rotation.get(template.id)||0;
+    }).eligible;
+    const normals=pools.NORMAL.filter(canAssign);
+    const mode=normals.length?'NORMAL':'SUBSTITUTE_ONLY';
+    const pool=pools[mode];
+    const eligible=normals.length?normals:pool.filter(canAssign);
+    const rotationKey=mode+':'+template.id;
+    const cursor=rotation.get(rotationKey)||0;
     const rank=(employee:EmployeeV3)=>{
       const target=employee.schedulerV3.targetWeeklyHours;
       const worked=shifts.filter(s=>s.employeeId===employee.id&&s.date>=weekStart&&s.date<=weekEnd).reduce((sum,s)=>sum+s.durationHours,0);
       return {
         standard:sameShiftTimesV3(resolveEffectiveStandardShift(employee.schedulerV3,slot.date),template)?1:0,
         deficit:options.balanceWeeklyTargets&&target!==null?target-worked:0,
-        rotation:(active.indexOf(employee)-cursor+active.length)%active.length,
+        rotation:(pool.indexOf(employee)-cursor+pool.length)%pool.length,
       };
     };
     eligible.sort((a,b)=>{const x=rank(a),y=rank(b);return y.standard-x.standard||y.deficit-x.deficit||x.rotation-y.rotation||compare(a.id,b.id);});
     const selected=eligible[0];
     if(!selected)continue;
     shifts.push({id:nextId(),date:slot.date,employeeId:selected.id,employeeName:selected.fullName,shiftTemplateId:template.id,startTime:template.startTime,endTime:template.endTime,durationHours:template.durationHours,crossMidnight:template.crossMidnight,source:'AUTO',isManualOverride:false,schedulerSchemaVersion:3});
-    rotation.set(template.id,(active.indexOf(selected)+1)%active.length);
+    rotation.set(rotationKey,(pool.indexOf(selected)+1)%pool.length);
   }
   shifts.sort((a,b)=>compare(a.date,b.date)||compare(a.startTime,b.startTime)||compare(a.employeeId,b.employeeId)||compare(a.id,b.id));
   return {
@@ -64,4 +77,20 @@ export function calculateEmployeeHoursV3(employees:EmployeeV3[],shifts:Generated
   employees.filter(e=>e.isActive).forEach(e=>totals.set(e.id,{hours:0,shiftCount:0}));
   for(const shift of shifts){const item=totals.get(shift.employeeId)||{hours:0,shiftCount:0};item.hours+=shift.durationHours;item.shiftCount++;totals.set(shift.employeeId,item);}
   return [...totals].map(([employeeId,item])=>({employeeId,hours:Math.round(item.hours*4)/4,shiftCount:item.shiftCount,targetWeeklyHours:employees.find(e=>e.id===employeeId)?.schedulerV3.targetWeeklyHours??null})).sort((a,b)=>compare(a.employeeId,b.employeeId));
+}
+
+export type WeeklyEmployeeHoursSummaryV3 = {
+  employeeId:string; weekStart:string; hours:number; targetHours:number|null; delta:number|null; isPartialWeek:boolean;
+};
+
+/** Weekly targets are never compared with an entire month's total. */
+export function calculateWeeklyEmployeeHoursV3(employees:EmployeeV3[],shifts:GeneratedShiftV3[],periodStart:string,periodEnd:string,weekStartDay=1):WeeklyEmployeeHoursSummaryV3[] {
+  const weeks=[...new Set(eachDateInRange(periodStart,periodEnd).map(date=>getWeekStartV3(date,weekStartDay)))].sort();
+  const visible=calculateEmployeeHoursV3(employees,shifts);
+  return visible.flatMap(employee=>weeks.map(weekStart=>{
+    const weekEnd=new Date(Date.parse(weekStart+'T00:00:00Z')+6*86400000).toISOString().slice(0,10);
+    const hours=shifts.filter(s=>s.employeeId===employee.employeeId&&s.date>=periodStart&&s.date<=periodEnd&&s.date>=weekStart&&s.date<=weekEnd).reduce((sum,s)=>sum+s.durationHours,0);
+    const targetHours=employee.targetWeeklyHours;
+    return {employeeId:employee.employeeId,weekStart,hours,targetHours,delta:targetHours===null?null:hours-targetHours,isPartialWeek:periodStart>weekStart||periodEnd<weekEnd};
+  }));
 }

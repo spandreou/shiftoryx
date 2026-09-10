@@ -12,6 +12,16 @@ export function shiftIntervalV3(date: string, start: string, end: string, cross 
   return { start: midnight + timeToMinutesV3(start) * 60000, end: midnight + (timeToMinutesV3(end) + (cross ? 1440 : 0)) * 60000 };
 }
 
+/** Calendar dates intersecting [start,end); an exact midnight endpoint is excluded. */
+export function touchedShiftDatesV3(date: string, start: string, end: string, cross = end < start): string[] {
+  if (!isIsoDateV3(date) || !isValidTimeV3(start) || !isValidTimeV3(end)) throw new Error('Μη έγκυρη ημερομηνία ή ώρα βάρδιας.');
+  const interval = shiftIntervalV3(date, start, end, cross);
+  if (interval.end <= interval.start || interval.end - interval.start > 86400000) throw new Error('Μη έγκυρο διάστημα βάρδιας.');
+  const dates: string[] = [];
+  for (let day = Math.floor(interval.start / 86400000) * 86400000; day < interval.end; day += 86400000) dates.push(new Date(day).toISOString().slice(0, 10));
+  return dates;
+}
+
 /**
  * Validates if a string is in HH:mm format.
  * @param value String to test

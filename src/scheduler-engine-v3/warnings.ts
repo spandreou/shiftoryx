@@ -1,5 +1,5 @@
 import type { EmployeeV3, EmployeeAbsenceV3, GeneratedShiftV3, SchedulerConfigV3, ScheduleWarningV3, WarningCodeV3 } from './types.ts';
-import { shiftIntervalV3 } from './config.ts';
+import { shiftIntervalV3, touchedShiftDatesV3 } from './config.ts';
 import { isFixedDayOff, resolveEffectiveStandardShift, sameShiftTimesV3, validateEmployeeProfileV3 } from './employeeProfile.ts';
 import { eachDateInRange, getWeekdayForDate } from './coverage.ts';
 
@@ -36,8 +36,9 @@ export function analyzeScheduleWarningsV3(config: SchedulerConfigV3, employees: 
     const employee = empMap.get(shift.employeeId);
     const fields = { date: shift.date, employeeId: shift.employeeId, shiftId: shift.id };
     if (!employee?.isActive) add('DEACTIVATED_EMPLOYEE_REFERENCE', 'Αναφορά σε ανενεργό ή μη διαθέσιμο εργαζόμενο.', fields);
-    if (employee && isFixedDayOff(shift.date, employee.schedulerV3.fixedDayOff)) add('FIXED_DAY_OFF_OVERRIDE', 'Εργασία σε σταθερό ρεπό.', fields);
-    if (absences.some(a => a.employeeId === shift.employeeId && a.startDate <= shift.date && a.endDate >= shift.date)) add('ABSENCE_OVERRIDE', 'Εργασία σε ημέρα απουσίας.', fields);
+    const touchedDates=touchedShiftDatesV3(shift.date,shift.startTime,shift.endTime,shift.crossMidnight);
+    if (employee && touchedDates.some(date=>isFixedDayOff(date, employee.schedulerV3.fixedDayOff))) add('FIXED_DAY_OFF_OVERRIDE', 'Εργασία σε σταθερό ρεπό.', fields);
+    if (absences.some(a => a.employeeId === shift.employeeId && touchedDates.some(date=>a.startDate <= date && a.endDate >= date))) add('ABSENCE_OVERRIDE', 'Εργασία σε ημέρα απουσίας.', fields);
     if (employee?.schedulerV3.workMode === 'SUBSTITUTE_ONLY' && shift.source === 'MANUAL') add('SUBSTITUTE_MANUAL_ASSIGNMENT', 'Χειροκίνητη ανάθεση αναπληρωματικού.', fields);
     if (employee) {
       const effective = resolveEffectiveStandardShift(employee.schedulerV3, shift.date);

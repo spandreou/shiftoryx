@@ -14,7 +14,7 @@ import type {
   Weekday,
 } from './types.ts';
 import { isFixedDayOff, isWithinActiveDates, resolveEffectiveStandardShift } from './employeeProfile.ts';
-import { timeToMinutesV3, calculateShiftDurationHoursV3, shiftIntervalV3 } from './config.ts';
+import { timeToMinutesV3, calculateShiftDurationHoursV3, shiftIntervalV3, touchedShiftDatesV3 } from './config.ts';
 
 export type EligibilityReason =
   | 'ELIGIBLE'
@@ -179,23 +179,23 @@ export function evaluateEmployeeEligibilityV3(
     return { eligible: false, reason: 'INACTIVE', employeeId: eid };
   }
 
-  // 2. Work mode check
-  if (employee.schedulerV3.workMode === 'SUBSTITUTE_ONLY') {
-    return { eligible: false, reason: 'SUBSTITUTE_ONLY', employeeId: eid };
-  }
+  // Participation selects the generator pool, not different physical constraints.
+  const touchedDates = options.shiftEndTime
+    ? touchedShiftDatesV3(dateStr, shiftStartTime, options.shiftEndTime, options.crossMidnight)
+    : [dateStr];
 
   // 3. Seasonal active dates
-  if (!isWithinActiveDates(dateStr, employee.activeFrom, employee.activeTo)) {
+  if (touchedDates.some(date => !isWithinActiveDates(date, employee.activeFrom, employee.activeTo))) {
     return { eligible: false, reason: 'OUTSIDE_ACTIVE_DATES', employeeId: eid };
   }
 
   // 4. Fixed day off
-  if (isFixedDayOff(dateStr, employee.schedulerV3.fixedDayOff)) {
+  if (touchedDates.some(date => isFixedDayOff(date, employee.schedulerV3.fixedDayOff))) {
     return { eligible: false, reason: 'FIXED_DAY_OFF', employeeId: eid };
   }
 
   // 5. Absence
-  if (hasAbsenceOnDate(eid, dateStr, absences)) {
+  if (touchedDates.some(date => hasAbsenceOnDate(eid, date, absences))) {
     return { eligible: false, reason: 'ABSENCE', employeeId: eid };
   }
 

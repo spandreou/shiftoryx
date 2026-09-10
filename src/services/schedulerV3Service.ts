@@ -1,4 +1,4 @@
-import { analyzeScheduleWarningsV3, assertV3Input, calculateEmployeeHoursV3, calculateCoverageSummary, generateScheduleV3, normalizeEmployeeProfileV3, requireEmployeeProfileV3 } from '../scheduler-engine-v3/index.ts';
+import { analyzeScheduleWarningsV3, assertV3Input, calculateEmployeeHoursV3, calculateWeeklyEmployeeHoursV3, calculateCoverageSummary, generateScheduleV3, normalizeEmployeeProfileV3, requireEmployeeProfileV3 } from '../scheduler-engine-v3/index.ts';
 import type { GenerateScheduleV3Input, GeneratedShiftV3, SchedulerConfigV3, EmployeeV3, SchedulePublicationV3 } from '../scheduler-engine-v3/types.ts';
 
 export function isSchedulerV3Active(globalFlag: unknown, tenantVersion: unknown): boolean {
@@ -8,7 +8,8 @@ export function mapEmployeesV3(employees: Array<Record<string, unknown>>, config
   return employees.map(e => ({ id: String(e.id || ''), fullName: String(e.fullName || ''), isActive: e.isActive !== false, schedulerV3: requireEmployeeProfileV3(e.schedulerV3, config?.shiftTemplates), activeFrom: e.activeFrom as string || null, activeTo: e.activeTo as string || null, color: typeof e.color === 'string' ? e.color : undefined }));
 }
 export function mapAbsencesV3(absences: Array<Record<string, any>>, first:string,last:string) {
-  return absences.filter(a=>a.status!=='CANCELLED'&&a.startDate<=last&&(a.endDate||a.startDate)>=first).map(a=>({id:a.id,employeeId:a.employeeId,type:['LEAVE','SICK'].includes(a.type)?a.type:'OTHER',startDate:a.startDate,endDate:a.endDate||a.startDate,scope:a.scope==='FULL_DAY'?'FULL_DAY':'PARTIAL_DAY'}));
+  const nextDay=new Date(Date.parse(last+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+  return absences.filter(a=>a.status!=='CANCELLED'&&a.startDate<=nextDay&&(a.endDate||a.startDate)>=first).map(a=>({id:a.id,employeeId:a.employeeId,type:['LEAVE','SICK'].includes(a.type)?a.type:'OTHER',startDate:a.startDate,endDate:a.endDate||a.startDate,scope:a.scope==='FULL_DAY'?'FULL_DAY':'PARTIAL_DAY'}));
 }
 export function refreshDraftPeopleV3(draft:DraftV3,employees:EmployeeV3[],absences:Array<Record<string,any>>,currentConfig?:SchedulerConfigV3):DraftV3 {
   draft=decodeDraftProfilesV3(draft);
@@ -51,6 +52,7 @@ export function analyzeDraftV3(draft: DraftV3) {
   return {
     warnings: analyzeScheduleWarningsV3(draft.config, draft.employees, draft.absences, draft.shifts, draft.periodStart, draft.periodEnd),
     employeeHours: calculateEmployeeHoursV3(draft.employees, draft.shifts),
+    weeklyHours: calculateWeeklyEmployeeHoursV3(draft.employees,draft.shifts,draft.periodStart,draft.periodEnd,draft.config.weekStartDay),
     coverageSummary: calculateCoverageSummary(draft.config, draft.periodStart, draft.periodEnd, draft.shifts),
   };
 }
