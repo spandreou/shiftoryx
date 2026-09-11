@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { connectAuthEmulator, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { connectFirestoreEmulator, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { connectFirestoreEmulator, doc, getDoc, updateDoc, deleteDoc, deleteField, setDoc } from 'firebase/firestore';
 import { connectStorageEmulator, ref, deleteObject } from 'firebase/storage';
 import { auth, db, storage } from '../src/firebase/config.js';
 import { schedulePublicationsRepository as repository } from '../src/repositories/schedulePublicationsRepository.ts';
-import { makeDefaultConfigV3, mapEmployeesV3, createDraftV3, createDraftFromPublicationV3 } from '../src/services/schedulerV3Service.ts';
+import { makeDefaultConfigV3, mapEmployeesV3, createDraftV3, createDraftFromPublicationV3, buildV3EmployeePayload } from '../src/services/schedulerV3Service.ts';
+import { createEmployee } from '../src/firebase/employeeService.js';
 import { buildPublicationV3 } from '../src/services/schedulePublicationService.ts';
 
 async function main() {
@@ -13,8 +14,10 @@ async function main() {
   const [fh,fp]=process.env.FIRESTORE_EMULATOR_HOST.split(':');connectFirestoreEmulator(db,fh,Number(fp));
   const [sh,sp]=process.env.FIREBASE_STORAGE_EMULATOR_HOST.split(':');connectStorageEmulator(storage,sh,Number(sp));
   const project='demo-shiftoryx-v3';
+  const encode=value=>value===null?{nullValue:null}:Array.isArray(value)?{arrayValue:{values:value.map(encode)}}:typeof value==='boolean'?{booleanValue:value}:typeof value==='number'?(Number.isInteger(value)?{integerValue:String(value)}:{doubleValue:value}):typeof value==='object'?{mapValue:{fields:encodeFields(value)}}:{stringValue:String(value)};
+  const encodeFields=values=>Object.fromEntries(Object.entries(values).filter(([,v])=>v!==undefined).map(([k,v])=>[k,encode(v)]));
   const seed=async(path,values)=>{
-    const fields=Object.fromEntries(Object.entries(values).map(([k,v])=>[k,{stringValue:String(v)}]));
+    const fields=encodeFields(values);
     const result=await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${project}/databases/(default)/documents/${path}`,{method:'PATCH',headers:{Authorization:'Bearer owner','Content-Type':'application/json'},body:JSON.stringify({fields})});
     assert.equal(result.ok,true,'emulator seed');
   };
@@ -34,14 +37,60 @@ async function main() {
   const denied=async(operation,label)=>assert.rejects(operation,error=>error.code==='permission-denied',label);
   console.log('CHECK malformed profile fields denied');
   for(const field of ['standardShiftTemplateId','rotationAlternateShiftTemplateId'])for(const value of [{},[],12,'','../unsafe','x'.repeat(101)])await denied(()=>updateDoc(doc(db,'tenants/tenant-a/employees/a'),{['schedulerV3.'+field]:value}),field);
-  for(const value of [{},[],12,'','not-a-date','2026-99-99','2026-02-31','2026-04-31','2026-02-29','1900-02-29','2100-02-29'])await denied(()=>updateDoc(doc(db,'tenants/tenant-a/employees/a'),{'schedulerV3.rotationAnchorWeekStart':value}),'anchor');
-  for(const value of ['2024-02-29','2000-02-29','2400-02-29'])await updateDoc(doc(db,'tenants/tenant-a/employees/a'),{'schedulerV3.rotationAnchorWeekStart':value});
+  for(const value of [{},[],12,'','not-a-date','2026-99-99','2026-02-31','2026-04-31','2026-02-29','1900-02-29','2100-02-29','2026-09-08','2024-02-29'])await denied(()=>updateDoc(doc(db,'tenants/tenant-a/employees/a'),{'schedulerV3.rotationAnchorWeekStart':value}),'anchor');
+  for(const value of ['2024-02-26','2000-02-28','2400-02-28'])await updateDoc(doc(db,'tenants/tenant-a/employees/a'),{'schedulerV3.rotationAnchorWeekStart':value});
   await updateDoc(doc(db,'tenants/tenant-a/employees/a'),{'schedulerV3.rotationAnchorWeekStart':null});
+  console.log('CHECK versioned direct profile strictness and legacy read-only compatibility');
+  const employeeRef=doc(db,'tenants/tenant-a/employees/a');const canonical=employees[0].schedulerV3;
+  const rotating={...canonical,standardShift:{startTime:'06:00',endTime:'14:00'},rotateStandardShiftWeekly:true,rotationAlternateShift:{startTime:'14:00',endTime:'22:00'},rotationAnchorWeekStart:'2026-09-07'};
+  const malformed=[{profileVersion:1},{profileVersion:'2'},{workMode:'INVALID'},{fixedDayOff:1.5},{fixedDayOff:7},{targetWeeklyHours:-1},{targetWeeklyHours:169},{targetWeeklyHours:'40'},{rotateStandardShiftWeekly:'false'},{unexpected:'field'},
+    ...['standardShift','rotationAlternateShift'].flatMap(field=>[{},[],1,'06:00',{startTime:'06:00'},{startTime:'06:00',endTime:'14:00',extra:true},{startTime:'24:00',endTime:'06:00'},{startTime:'06:10',endTime:'14:00'},{startTime:'06:00',endTime:'14:10'},{startTime:'06:00',endTime:'06:00'}].map(value=>({[field]:value}))),
+    {standardShift:null},{rotationAlternateShift:null},{rotationAnchorWeekStart:null},{rotationAlternateShift:{startTime:'10:00',endTime:'18:00'}},{rotationAlternateShift:{startTime:'14:00',endTime:'18:00'}}];
+  for(const [n,patch] of malformed.entries()){
+    const schedulerV3={...rotating,...patch};
+    await denied(()=>updateDoc(employeeRef,{schedulerV3}),'invalid direct profile update');
+    await denied(()=>setDoc(doc(db,'tenants/tenant-a/employees/profile-invalid-'+n),{fullName:'Invalid',schedulerV3}),'invalid direct profile create');
+  }
+  for(const key of Object.keys(rotating)){
+    const incomplete={...rotating};delete incomplete[key];
+    await denied(()=>updateDoc(employeeRef,{schedulerV3:incomplete}),'missing profile field update');
+    await denied(()=>setDoc(doc(db,'tenants/tenant-a/employees/profile-missing-'+key),{fullName:'Invalid',schedulerV3:incomplete}),'missing profile field create');
+  }
+  await denied(()=>updateDoc(employeeRef,{schedulerV3:deleteField()}),'profile removal');
+  for(const workMode of ['NORMAL','SUBSTITUTE_ONLY'])for(const targetWeeklyHours of [null,20,24,32,37.5,40])await updateDoc(employeeRef,{schedulerV3:{...rotating,workMode,targetWeeklyHours}});
+  await updateDoc(employeeRef,{schedulerV3:{...rotating,standardShift:{startTime:'22:00',endTime:'06:00'},rotationAlternateShift:{startTime:'06:00',endTime:'14:00'}}});
+  await updateDoc(employeeRef,{schedulerV3:canonical});
+  const legacyProfile={workMode:'NORMAL',fixedDayOff:null,targetWeeklyHours:32,standardShiftTemplateId:'day',rotateStandardShiftWeekly:false,rotationAlternateShiftTemplateId:null,rotationAnchorWeekStart:null};
+  await seed('tenants/tenant-a/employees/legacy',{fullName:'Παλιός εργαζόμενος',isActive:true,schedulerV3:legacyProfile});
+  const legacyRef=doc(db,'tenants/tenant-a/employees/legacy');const legacyBefore=(await getDoc(legacyRef)).data();
+  assert.equal(mapEmployeesV3([{id:'legacy',...legacyBefore}],config)[0].schedulerV3.profileVersion,2);
+  assert.deepEqual((await getDoc(legacyRef)).data(),legacyBefore,'reading compatibility never writes');
+  await updateDoc(legacyRef,{fullName:'Ενημερωμένο όνομα'});
+  assert.deepEqual((await getDoc(legacyRef)).data().schedulerV3,legacyProfile);
+  await denied(()=>updateDoc(legacyRef,{'schedulerV3.targetWeeklyHours':40}),'new writes cannot retain old profile format');
+  await denied(()=>setDoc(doc(db,'tenants/tenant-a/employees/new-legacy'),{fullName:'New',schedulerV3:legacyProfile}),'new legacy profile');
+  await repository.saveSettings(config,[{id:'legacy',...legacyBefore}]);
+  const migrated=(await getDoc(legacyRef)).data().schedulerV3;assert.equal(migrated.profileVersion,2);assert.deepEqual(migrated.standardShift,{startTime:'08:00',endTime:'16:00'});assert.equal(Object.hasOwn(migrated,'standardShiftTemplateId'),false);
+  const created=await createEmployee({tenantId:'tenant-a',...buildV3EmployeePayload({fullName:'Νέος εργαζόμενος'})});
+  const createdData=(await getDoc(doc(db,'tenants/tenant-a/employees',created.id))).data();assert.equal(createdData.schedulerV3.workMode,'NORMAL');assert.equal(createdData.schedulerV3.profileVersion,2);assert.equal(Object.hasOwn(createdData,'scheduleRole'),false);
+  const batchProfiles=mapEmployeesV3(Array.from({length:100},(_,n)=>({id:'profile-batch-'+n,fullName:'Batch '+n,isActive:true})));
+  for(const employee of batchProfiles)await seed('tenants/tenant-a/employees/'+employee.id,{fullName:employee.fullName,isActive:true});
+  await repository.saveSettings(config,batchProfiles);
+  assert.equal((await getDoc(doc(db,'tenants/tenant-a/employees/profile-batch-99'))).data().schedulerV3.profileVersion,2);
+  await assert.rejects(()=>repository.saveSettings(config,[...batchProfiles,{...batchProfiles[0],id:'profile-batch-100'}]));
+  console.log(`V3 direct profile PASS: ${(malformed.length+Object.keys(rotating).length)*2+3} negative writes, 13 rotation/work-mode/target controls, legacy dual read + canonical single write, real creation, 100-profile batch and 101 rejection.`);
   const draft=createDraftV3({config,employees,absences:[],periodStart:'2026-09-07',periodEnd:'2026-09-13',periodType:'WEEK',options:{balanceWeeklyTargets:true}},'emulator-draft');
   console.log('CHECK draft roundtrip');
   await repository.saveDraft(draft);const loaded=await repository.loadDraft('tenant-a',draft.id);assert.equal(loaded.shifts.length,draft.shifts.length);
   loaded.shifts.pop();await repository.saveDraft(loaded);assert.equal((await repository.loadDraft('tenant-a',draft.id)).shifts.length,loaded.shifts.length);
   await assert.rejects(()=>repository.saveDraft(loaded),'stale draft revision rejected');
+  const legacyDraftId='legacy-draft';const legacyShiftIds=draft.shifts.map((_,n)=>legacyDraftId+'_'+n);
+  for(const [n,shift]of draft.shifts.entries())await seed('tenants/tenant-a/shifts/'+legacyShiftIds[n],{...shift,draftId:legacyDraftId,type:'work'});
+  const legacyMetadata={id:legacyDraftId,tenantId:'tenant-a',schemaVersion:3,periodType:draft.periodType,periodStart:draft.periodStart,periodEnd:draft.periodEnd,config,employees:[{id:'a',fullName:'Μαρία',isActive:true,schedulerV3:legacyProfile}],absences:[],options:draft.options,updatedBy:user.uid,revision:1,shiftDocumentIds:legacyShiftIds};
+  await seed('tenants/tenant-a/scheduleDrafts/'+legacyDraftId,legacyMetadata);
+  const readLegacy=await repository.loadDraft('tenant-a',legacyDraftId);assert.equal(readLegacy.employees[0].schedulerV3.profileVersion,2);
+  assert.deepEqual((await getDoc(doc(db,'tenants/tenant-a/scheduleDrafts',legacyDraftId))).data(),legacyMetadata);
+  await repository.saveDraft(readLegacy);assert.equal((await getDoc(doc(db,'tenants/tenant-a/scheduleDrafts',legacyDraftId))).data().employees[0].schedulerV3.profileVersion,2);
   console.log('CHECK malformed draft fields denied');
   const draftRef=doc(db,'tenants/tenant-a/scheduleDrafts',draft.id);
   for(const patch of [{periodType:'YEAR'},{periodStart:'bad'},{periodStart:'2026-02-31',periodEnd:'2026-03-01'},{periodStart:'2100-02-29',periodEnd:'2100-03-01'},{periodEnd:'2026-09-31'},{periodEnd:[]},{periodEnd:'2026-09-01'},{revision:-1},{revision:1.5},{revision:'1'},{'config.tenantId':'tenant-b'},{id:'other'},{unexpected:'field'}])await denied(()=>updateDoc(draftRef,patch),'malformed draft');
