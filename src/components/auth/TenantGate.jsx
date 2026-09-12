@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { authRepository } from '../../repositories';
 import { hasAuthTicketInUrl } from '../../firebase/authBrokerService';
 import {
@@ -60,9 +60,12 @@ export default function TenantGate({ children, hostContext: providedHostContext,
     () => providedHostContext || getCurrentTenantHostContext(),
     [providedHostContext],
   );
+  // The callback clears the fragment before its asynchronous exchange finishes.
+  // Keep the initial handoff state until its full-page navigation completes.
+  const initialTicket = useRef(isAuthBrokerEnabled && hasAuthTicketInUrl()).current;
   const shouldBypassGate =
     (hostContext.mode !== 'tenant' && isPublicTenantRoute(routePath)) ||
-    (isAuthBrokerEnabled && hasAuthTicketInUrl());
+    initialTicket;
   const [state, setState] = useState({
     status: isTenantGateEnabled && hostContext.mode === 'tenant' && !shouldBypassGate ? 'checking' : 'ready',
     message: '',

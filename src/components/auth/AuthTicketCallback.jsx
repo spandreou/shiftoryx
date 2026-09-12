@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authRepository } from '../../repositories';
 import {
   exchangeTenantAuthTicket,
@@ -22,23 +22,25 @@ function classifyCustomTokenSignInError(err) {
 export default function AuthTicketCallback() {
   const [status, setStatus] = useState('idle');
   const [diagnosticCode, setDiagnosticCode] = useState('');
+  const handoff = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
-    const ticket = readAndClearAuthTicketFromUrl();
-    if (!ticket) return undefined;
-
-    setStatus('exchanging');
-
-    exchangeTenantAuthTicket(ticket)
-      .then(({ customToken }) => {
+    if (!handoff.current) {
+      const ticket = readAndClearAuthTicketFromUrl();
+      if (!ticket) return undefined;
+      // React development remounts must observe the same single-use exchange.
+      handoff.current = exchangeTenantAuthTicket(ticket).then(({ customToken }) => {
         return authRepository.signInWithBrokerCustomToken({ customToken }).catch((signInErr) => {
           const diag = classifyCustomTokenSignInError(signInErr);
           const customErr = new Error(diag);
           customErr.category = diag;
           throw customErr;
         });
-      })
+      });
+    }
+    setStatus('exchanging');
+    handoff.current
       .then(() => {
         if (!cancelled && typeof window !== 'undefined') {
           window.location.assign('/app');
