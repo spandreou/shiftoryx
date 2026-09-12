@@ -1,7 +1,9 @@
 import { test, expect } from 'playwright/test';
 import { makeDefaultConfigV3 } from '../src/services/schedulerV3Service.ts';
 const url=process.env.E2E_BASE_URL||'http://127.0.0.1:5187';
-test.setTimeout(60_000);
+// This covers editing, settings, PDF download and restoration in one browser flow.
+// Traces on slower hosts show successful actions exhausting the former 60s total.
+test.setTimeout(120_000);
 for (const width of [390,1440]) test(`V3 draft and settings at ${width}px`,async({page},info)=>{
   const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
   await page.setViewportSize({width,height:900});

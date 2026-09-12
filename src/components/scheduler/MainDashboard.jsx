@@ -979,7 +979,7 @@ export default function MainDashboard() {
       actionKey: 'exportV3'+format,
       loadingMessage: 'Προετοιμασία εξαγωγής προσχεδίου...',
       execute: async () => {
-        const payload = {...buildV3ExportPayload(draft), weekdayLabels: WEEKDAY_LABELS};
+        const payload = buildV3ExportPayload(draft);
         const first=payload.weekDays[0], last=payload.weekDays.at(-1);
         const fileName=format==='EXCEL'?`program_excel_${first}_${last}.xlsx`:format==='WORD'?`program_word_${first}_${last}.docx`:'';
         return runAdminExportWithAudit({

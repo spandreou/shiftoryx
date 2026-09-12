@@ -71,8 +71,11 @@ export function editDraftV3(draft: DraftV3, shifts: GeneratedShiftV3[]): DraftV3
 /** Explicit current-draft export payload; no private profile or legacy-role metadata. */
 export function buildV3ExportPayload(draft: DraftV3) {
   analyzeDraftV3(draft);
+  const weekDays=eachDateInRange(draft.periodStart,draft.periodEnd);
+  const labels=['Κυριακή','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο'];
   return {
-    weekDays:eachDateInRange(draft.periodStart,draft.periodEnd),
+    weekDays,
+    weekdayLabels:weekDays.map(date=>labels[new Date(date+'T00:00:00Z').getUTCDay()]),
     employees:draft.employees.filter(e=>e.isActive||draft.shifts.some(s=>s.employeeId===e.id)).map(e=>({id:e.id,fullName:e.fullName})),
     shifts:draft.shifts.map(s=>({id:s.id,employeeId:s.employeeId,date:s.date,startTime:s.startTime,endTime:s.endTime,durationHours:s.durationHours,crossMidnight:Boolean(s.crossMidnight),schedulerSchemaVersion:3,type:'work',label:'ΕΡΓ',shiftType:'custom'})),
   };
