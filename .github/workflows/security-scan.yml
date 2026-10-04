@@ -25,6 +25,12 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Pin npm for reviewed audit representation
+        run: npm install --global --ignore-scripts npm@10.9.4
+
+      - name: Assert the actual audit npm executable
+        run: node scripts/assert-pinned-npm.mjs
+
       - name: Install dependencies
         run: npm ci
 
@@ -35,7 +41,7 @@ jobs:
         run: node scripts/validate-cve-audit-exceptions.mjs --run
 
       - name: Audit exception fail-closed regression tests
-        run: node --test scripts/test-npm-audit-exceptions.mjs scripts/test-audit-gate-runtime.mjs
+        run: node --test scripts/test-npm-audit-exceptions.mjs scripts/test-audit-gate-runtime.mjs scripts/test-pinned-npm-runtime.mjs scripts/test-trivy-audit-exceptions.mjs
 
   repository-scan:
     name: Trivy repository scan
@@ -44,17 +50,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Trivy HIGH/CRITICAL gate
-        uses: aquasecurity/trivy-action@v0.36.0
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,misconfig,secret
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          exit-code: "1"
-          ignore-unfixed: true
-          format: table
+          node-version: 24
+
+      # Same setup action already used by trivy-action@v0.36.0, pinned exactly.
+      - name: Setup reviewed Trivy
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
+        with:
+          version: v0.70.0
+
+      - name: Trivy raw HIGH/CRITICAL exception gate
+        run: node scripts/validate-trivy-audit-exceptions.mjs --run
 
   semgrep:
     name: Semgrep static analysis report

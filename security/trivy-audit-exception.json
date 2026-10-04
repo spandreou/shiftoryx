@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "owner": "ShiftOryx repository owner / security maintainer",
+  "expiresAt": "2026-11-03T00:00:00Z",
+  "scanner": {
+    "version": "0.70.0",
+    "schemaVersion": 2,
+    "scanners": [
+      "vuln",
+      "misconfig",
+      "secret"
+    ],
+    "severities": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "exitCode": 1,
+    "ignoreUnfixed": true,
+    "requireAllStatuses": true
+  },
+  "exception": {
+    "cve": "CVE-2026-101916",
+    "ghsa": "GHSA-m9gg-hp2v-232j",
+    "package": "@grpc/grpc-js",
+    "version": "1.9.16",
+    "target": "package-lock.json",
+    "physicalPath": "node_modules/@grpc/grpc-js",
+    "severity": "HIGH",
+    "fixedVersion": "1.13.6, 1.14.5"
+  },
+  "reviewed": {
+    "rootLock": "8FF8E04F61ACCEB7651748BA9B9E83E64C8F08551E9573A8EEC344D429EA3FA7",
+    "manifest": "644CF4AD27575EE50B68897B2D1E9665A464696AAD94680F02618A36ED1A281A",
+    "functionsLock": "F6E6E3D8CEDC249CCCD7A17778682E72E6327FD2D63C858E24411DEA6655F434",
+    "npmPolicy": "FA72718D619C814EDA8CDE783E56C1B6E233886A5AEF2E398342CAC514519271",
+    "sourceContext": "48CD9B41158518465024AB9D0049FBCDC0574D2817A2108055A198F1EE2AB744"
+  },
+  "inventory": {
+    "package-lock.json": "98FDF27B69E6FA88F9EB37448538FD38448B2BB5169BC4B1B122E802946B186E",
+    "functions/package-lock.json": "99544DFDFB8EF6054DC921FA5BA1D525CB293C85DC4AAFBEFBE0AADBC71293E1"
+  },
+  "misconf": {
+    "Successes": 20,
+    "Failures": 0
+  },
+  "vulnerability": {
+    "VulnerabilityID": "CVE-2026-101916",
+    "VendorIDs": [
+      "GHSA-m9gg-hp2v-232j"
+    ],
+    "PkgID": "@grpc/grpc-js@1.9.16",
+    "PkgName": "@grpc/grpc-js",
+    "PkgIdentifier": {
+      "PURL": "pkg:npm/%40grpc/grpc-js@1.9.16",
+      "UID": "232e79735b43575a"
+    },
+    "InstalledVersion": "1.9.16",
+    "FixedVersion": "1.13.6, 1.14.5",
+    "Status": "fixed",
+    "SeveritySource": "ghsa",
+    "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-101916",
+    "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory npm",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+    },
+    "Fingerprint": "sha256:44b214262dba861c351dfa998b5c2a126023f441fdf20a74b1e10eea39c2a6d1",
+    "Title": "grpc-js: grpc-js: Authentication bypass via improper peer certificate validation",
+    "Description": "@grpc/grpc-js implements the core functionality of gRPC purely in JavaScript, without a C++ addon. Prior to 1.13.6 and 1.14.5, getAuthContext does not distinguish authorized from unauthorized peer certificates when server credentials set requireClientCertificate to false. When applications use the returned authentication context, they can treat an unauthorized certificate as authorized, causing improper authentication. @grpc/grpc-js-xds can reach this condition when RBAC authentication is enabled in affected configurations. This issue is fixed in version 1.14.5 and 1.13.6.",
+    "Severity": "HIGH",
+    "CweIDs": [
+      "CWE-295"
+    ],
+    "VendorSeverity": {
+      "ghsa": 3,
+      "redhat": 3
+    },
+    "CVSS": {
+      "ghsa": {
+        "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+        "V3Score": 7.4
+      },
+      "redhat": {
+        "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+        "V3Score": 7.4
+      }
+    },
+    "References": [
+      "https://access.redhat.com/security/cve/CVE-2026-101916",
+      "https://github.com/grpc/grpc-node",
+      "https://github.com/grpc/grpc-node/commit/2a84ec8b01b9db68ed9d2b117a53a81449edb8ee",
+      "https://github.com/grpc/grpc-node/commit/b4e0079c6d22a2adedfcac748e0bc083f783bc7c",
+      "https://github.com/grpc/grpc-node/releases/tag/@grpc/grpc-js@1.14.5",
+      "https://github.com/grpc/grpc-node/security/advisories/GHSA-m9gg-hp2v-232j",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-101916",
+      "https://www.cve.org/CVERecord?id=CVE-2026-101916"
+    ],
+    "PublishedDate": "2026-09-28T21:17:13.03Z",
+    "LastModifiedDate": "2026-10-01T15:17:25.083Z"
+  }
+}

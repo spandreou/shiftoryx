@@ -1,5 +1,5 @@
-import {readFileSync,statSync,readdirSync,lstatSync,existsSync} from 'node:fs';
-import {join,resolve,dirname,relative,extname} from 'node:path';
+import {readFileSync,statSync,readdirSync,lstatSync,existsSync,realpathSync} from 'node:fs';
+import {join,resolve,dirname,relative,extname,isAbsolute,basename,delimiter} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
@@ -39,18 +39,34 @@ export function loadInputs(options:Record<string,string>={}) {
  assertReviewedContext(ROOT,policy);
  return {policy,lock:readJson(options.lockfile||join(ROOT,'package-lock.json')),manifest:readJson(options.manifest||join(ROOT,'package.json'))};
 }
+export const EXPECTED_NPM_VERSION='10.9.4';
 function npmCli():string {
  const base=dirname(process.execPath);
  const candidates=[join(base,'node_modules/npm/bin/npm-cli.js'),resolve(base,'../lib/node_modules/npm/bin/npm-cli.js')];
- const found=candidates.find(p=>existsSync(p)&&statSync(p).isFile());
- if(!found)throw new GateError('NPM_UNAVAILABLE');
- return found;
+ const override=process.env.SHIFTORYX_AUDIT_NPM_CLI;
+ const found=override===undefined?candidates.find(p=>existsSync(p)&&statSync(p).isFile()):override;
+ if(!found||!isAbsolute(found)||!existsSync(found)||basename(found)!=='npm-cli.js'||basename(dirname(found))!=='bin')throw new GateError('NPM_RESOLUTION');
+ if(lstatSync(found).isSymbolicLink()||realpathSync(found).toLowerCase()!==resolve(found).toLowerCase())throw new GateError('NPM_RESOLUTION');
+ return realpathSync(found);
 }
 export function runNpm(args:string[],cwd=ROOT) {
  const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>/^(PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|USERPROFILE|APPDATA|LOCALAPPDATA|HOME|HOMEDRIVE|HOMEPATH)$/i.test(k)));
  Object.assign(env,{CI:'true',FORCE_COLOR:'0'});
- const r=spawnSync(process.execPath,[npmCli(),...args],{cwd,env,encoding:'utf8',windowsHide:true,shell:false,timeout:180000,maxBuffer:4*1024*1024});
- return {status:r.status,stdout:r.stdout||'',error:r.error,signal:r.signal};
+ const pathKey=Object.keys(env).find(k=>k.toUpperCase()==='PATH')||'PATH';
+ env[pathKey]=dirname(process.execPath)+delimiter+(env[pathKey]||'');
+ const cli=npmCli(),manifest=join(dirname(dirname(cli)),'package.json');
+ let metadata:any;
+ try{metadata=readJson(manifest);}catch{throw new GateError('NPM_METADATA');}
+ if(metadata?.name!=='npm'||metadata?.version!==EXPECTED_NPM_VERSION||lstatSync(manifest).isSymbolicLink())throw new GateError('NPM_VERSION');
+ const seal=()=>digest(readFileSync(cli))+'|'+digest(readFileSync(manifest));
+ const initial=seal();
+ const options={cwd,env,encoding:'utf8' as const,windowsHide:true,shell:false,timeout:180000,maxBuffer:4*1024*1024};
+ const probe=spawnSync(process.execPath,[cli,'--version'],options);
+ if(probe.error||probe.signal||probe.status!==0||probe.stdout.trim()!==EXPECTED_NPM_VERSION)throw new GateError('NPM_VERSION');
+ if(seal()!==initial)throw new GateError('NPM_EXECUTABLE_DRIFT');
+ const r=spawnSync(process.execPath,[cli,...args],options);
+ if(seal()!==initial)throw new GateError('NPM_EXECUTABLE_DRIFT');
+ return {status:r.status,stdout:r.stdout||'',error:r.error,signal:r.signal,npmVersion:EXPECTED_NPM_VERSION};
 }
 export function parseOptions(args:string[],allowed:string[]):Record<string,string> {
  const result:Record<string,string>={};
