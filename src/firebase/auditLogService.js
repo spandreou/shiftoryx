@@ -6,6 +6,7 @@ import {
   withFirestoreWrite,
 } from './firestoreCore';
 import { TENANT_SCOPED_COLLECTIONS } from '../utils/tenantDataPaths';
+import { publicDemoEnabled } from '../demo/config';
 
 export async function writeAuditLog({
   tenantId,
@@ -19,6 +20,9 @@ export async function writeAuditLog({
 }) {
   ensureFirestoreReady();
   if (!action) return null;
+  // Every active demo mutation records its own bounded server-side event.
+  // The browser must never create arbitrary audit documents.
+  if (publicDemoEnabled) return null;
 
   const safeActor = actor && typeof actor === 'object' ? actor : {};
   const safeTarget = target && typeof target === 'object' ? target : {};

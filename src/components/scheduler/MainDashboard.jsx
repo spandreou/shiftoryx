@@ -1858,7 +1858,7 @@ export default function MainDashboard() {
     </Suspense>
   );
   if (v3Active) return <>{v3Workspace}
-    <Suspense fallback={null}><EmployeeProfileModal open={Boolean(profileEmployee)} employee={profileEmployee} isAdmin={isAdmin} showRole={false} onClose={handleCloseProfileModal} onSave={handleSaveProfile}/></Suspense>
+    <Suspense fallback={null}><EmployeeProfileModal open={Boolean(profileEmployee)} employee={profileEmployee} isAdmin={isAdmin} showRole={false} showPrivateFields={import.meta.env.VITE_PUBLIC_DEMO_ENABLED!=='true'} onClose={handleCloseProfileModal} onSave={handleSaveProfile}/></Suspense>
     <ToastStack toasts={toasts} onDismiss={dismissToast}/>
   </>;
   return legacyTools;

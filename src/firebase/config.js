@@ -83,7 +83,7 @@ const functions = app ? getFunctions(app, 'us-central1') : null;
 const storage = app ? getStorage(app, `gs://${firebaseEnv.storageBucket}`) : null;
 let analytics = null;
 
-if (typeof window !== 'undefined' && app) {
+if (typeof window !== 'undefined' && app && getEnvValue('VITE_PUBLIC_DEMO_ENABLED') !== 'true') {
   isSupported()
     .then((supported) => {
       if (supported) {

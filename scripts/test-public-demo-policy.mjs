@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {DEMO_TENANTS,assertDemoRuntime,assertEntryOrigin,requireDemoTenant,demoOwnerUid,assertDemoIdentity} from '../functions/src/public-demo/policy.ts';
+import {publicDemoFixture} from '../functions/src/public-demo/fixtures.ts';
+import {realisticTenants} from '../qa/scheduler-v3/fixtures.ts';
+import {createDraftV3,mapAbsencesV3} from '../src/services/schedulerV3Service.ts';
+let checks=0;const check=(fn)=>{fn();checks++;};
+const runtime={PUBLIC_DEMO_ENABLED:'true',PUBLIC_DEMO_PROJECT_ID:'shiftoryx-public-demo',GCLOUD_PROJECT:'shiftoryx-public-demo'};
+check(()=>assert.doesNotThrow(()=>assertDemoRuntime(runtime)));
+for(const project of ['gasstationproject-9dd89','bp-kallis','demo-evil',''])check(()=>assert.throws(()=>assertDemoRuntime({...runtime,GCLOUD_PROJECT:project})));
+for(const value of ['demo','demo-any','demo-fuel-extra','qa-fuel','bp-kallis','../demo-fuel',null,{},['demo-fuel']])check(()=>assert.throws(()=>requireDemoTenant(value)));
+check(()=>assert.throws(()=>assertDemoRuntime({...runtime,PUBLIC_DEMO_ENABLED:'false'})));
+for(const [n,tenant] of DEMO_TENANTS.entries()){
+  const state={generation:2,resetting:false},claims={publicDemo:true,demoTenant:tenant,demoGeneration:2};
+  check(()=>assert.doesNotThrow(()=>assertDemoIdentity(tenant,state,demoOwnerUid(tenant,2),claims)));
+  check(()=>assert.throws(()=>assertDemoIdentity(tenant,{...state,resetting:true},demoOwnerUid(tenant,2),claims)));
+  check(()=>assert.throws(()=>assertDemoIdentity(tenant,state,demoOwnerUid(tenant,1),{...claims,demoGeneration:1})));
+  check(()=>assert.throws(()=>assertDemoIdentity(tenant,state,demoOwnerUid(tenant,2),{...claims,publicDemo:false})));
+  check(()=>assert.doesNotThrow(()=>assertEntryOrigin(tenant,'https://demo.shiftoryx.gr')));
+  check(()=>assert.throws(()=>assertEntryOrigin(tenant,'https://evil.example')));
+  for(const foreign of DEMO_TENANTS.filter(t=>t!==tenant))check(()=>assert.throws(()=>assertDemoIdentity(foreign,state,demoOwnerUid(tenant,2),claims)));
+  const f=publicDemoFixture(tenant,new Date('2026-09-14T12:00:00Z'));
+  check(()=>assert.equal(f.employees.length,[6,8,6,9][n]));
+  check(()=>assert.equal(f.weekStart,'2026-09-14'));
+  check(()=>assert.ok(f.employees.every(e=>e.schedulerV3.profileVersion===2)));
+  check(()=>assert.equal(f.config.tenantId,tenant));
+  check(()=>assert.deepEqual(f.config.coverageRequirements,realisticTenants()[n].config.coverageRequirements));
+  const d=createDraftV3({config:f.config,employees:f.employees,absences:mapAbsencesV3(f.absences,f.weekStart,f.weekEnd),periodType:'WEEK',periodStart:f.weekStart,periodEnd:f.weekEnd,options:{balanceWeeklyTargets:true}},tenant+'-policy-test');
+  check(()=>assert.ok(d.shifts.length>0));
+}
+console.log(`PUBLIC_DEMO_POLICY checks=${checks} PASS`);

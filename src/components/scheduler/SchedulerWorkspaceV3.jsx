@@ -9,6 +9,9 @@ import SchedulePreviewV3 from './SchedulePreviewV3';
 import WarningsPanelV3 from './WarningsPanelV3';
 import PublicationHistoryV3 from './PublicationHistoryV3';
 import AbsencesPanel from './AbsencesPanel';
+import {publicDemoEnabled} from '../../demo/config';
+import {browserDemoPublicationTransport} from '../../demo/browserPublicationTransport.ts';
+import {DemoTransportError} from '../../demo/publicationTransport.ts';
 
 export function SchedulerSetupV3({tenantId,employees}) {
   const [message,setMessage]=useState(''),[busy,setBusy]=useState(false);
@@ -24,6 +27,11 @@ export default function SchedulerWorkspaceV3({config,employees,absences,uid,onLo
   const [draft,setDraft]=useState(null),[start,setStart]=useState(()=>new Date().toISOString().slice(0,10)),[periodType,setPeriodType]=useState('WEEK');
   const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[publications,setPublications]=useState([]),[drafts,setDrafts]=useState([]),[acceptWarnings,setAcceptWarnings]=useState(false),[newName,setNewName]=useState('');
   const store=useSchedulerStore();
+  const [pendingIntent,setPendingIntent]=useState(null);
+  const [retryAllowed,setRetryAllowed]=useState(true);
+  const demoTransport=useMemo(()=>publicDemoEnabled?browserDemoPublicationTransport(config.tenantId,async candidate=>{const revision=await repository.saveDraft(candidate);setDraft(d=>d?.id===candidate.id?{...d,revision}:d);return revision;}):null,[config.tenantId]);
+  const discardPending=()=>{demoTransport?.discardPending();setPendingIntent(null);setRetryAllowed(true);};
+  useEffect(()=>{let disposed=false;if(demoTransport)(async()=>{try{const p=await demoTransport.pending();if(!p||disposed)return;const loaded=await repository.loadDraft(config.tenantId,p.draftId);if(!disposed){setDraft(loaded);setAcceptWarnings(p.acceptWarnings);setPendingIntent(p);setMessage('Εκκρεμεί επιβεβαίωση δημοσίευσης. Έλεγξε το προσχέδιο και επανάλαβε την ίδια αίτηση.');}}catch{if(!disposed)setMessage('Η εκκρεμής δημοσίευση χρειάζεται έλεγχο πριν από νέα προσπάθεια.');}})();return()=>{disposed=true;};},[demoTransport,config.tenantId]);
   const roster=useMemo(()=>{try{return {employees:mapEmployeesV3(employees,config),error:''};}catch(error){return {employees:[],error:error.message};}},[employees,config]);
   useEffect(()=>{
     if(roster.error){setMessage(roster.error);return;}
@@ -32,14 +40,16 @@ export default function SchedulerWorkspaceV3({config,employees,absences,uid,onLo
   },[roster,absences,config]);
   const analysis=useMemo(()=>{if(!draft)return {report:null,error:''};try{return {report:analyzeDraftV3(draft),error:''};}catch(error){return {report:null,error:error.message};}},[draft]);
   const report=analysis.report;
-  const run=async fn=>{if(busy)return false;setBusy(true);setMessage('');try{const result=await fn();return result===undefined?true:result;}catch(error){setMessage(error?.message||'Η ενέργεια δεν ολοκληρώθηκε.');return false;}finally{setBusy(false);}};
-  const change=shifts=>{try{setDraft(editDraftV3(draft,shifts));setAcceptWarnings(false);setMessage('');}catch(error){setMessage(error.message);}};
+  const run=async fn=>{if(busy)return false;setBusy(true);setMessage('');try{const result=await fn();return result===undefined?true:result;}catch(error){if(error instanceof DemoTransportError)setRetryAllowed(error.retryable);setMessage(publicDemoEnabled?(error instanceof DemoTransportError?error.message:'Η ενέργεια δεν ολοκληρώθηκε. Έλεγξε το προσχέδιο πριν δοκιμάσεις ξανά.'):(error?.message||'Η ενέργεια δεν ολοκληρώθηκε.'));return false;}finally{if(demoTransport)setPendingIntent(await demoTransport.pending().catch(()=>null));setBusy(false);}};
+  const change=shifts=>{try{discardPending();setDraft(editDraftV3(draft,shifts));setAcceptWarnings(false);setMessage('');}catch(error){setMessage(error.message);}};
   const currentInputs=()=>{const current=useSchedulerStore.getState();return {current,currentConfig:current.schedulerConfigV3?.tenantId===config.tenantId?current.schedulerConfigV3:config};};
   const download=publication=>run(async()=>{
-    const bytes=await repository.download(config.tenantId,publication.id),url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
-    const a=document.createElement('a');a.href=url;a.download=`schedule-${publication.periodKey}-v${publication.version}.pdf`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    const downloaded=demoTransport?await demoTransport.download(publication.id):{bytes:await repository.download(config.tenantId,publication.id),filename:`schedule-${publication.periodKey}-v${publication.version}.pdf`};
+    const url=URL.createObjectURL(new Blob([downloaded.bytes],{type:'application/pdf'}));
+    const a=document.createElement('a');a.href=url;a.download=downloaded.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   });
   const generate=()=>run(async()=>{
+    discardPending();
     let first=start,last;
     if(periodType==='MONTH'){first=start.slice(0,7)+'-01';const date=new Date(first+'T00:00:00Z');date.setUTCMonth(date.getUTCMonth()+1);date.setUTCDate(0);last=date.toISOString().slice(0,10);}
     else{const date=new Date(start+'T00:00:00Z');date.setUTCDate(date.getUTCDate()-((date.getUTCDay()+6)%7));first=date.toISOString().slice(0,10);date.setUTCDate(date.getUTCDate()+6);last=date.toISOString().slice(0,10);}
@@ -56,6 +66,11 @@ export default function SchedulerWorkspaceV3({config,employees,absences,uid,onLo
       {employees.map(e=><div className="flex flex-wrap gap-3 p-2" key={e.id}><span>{e.fullName}</span>
         {onOpenProfile&&<button disabled={busy} onClick={()=>onOpenProfile(e)}>Επεξεργασία στοιχείων</button>}
         <button disabled={busy} onClick={()=>run(()=>repository.setEmployeeActive(config.tenantId,e.id,e.isActive===false))}>{e.isActive===false?'Ενεργοποίηση':'Απενεργοποίηση'}</button>
+        {publicDemoEnabled&&<button disabled={busy} className="text-rose-700 dark:text-rose-300" onClick={()=>run(async()=>{
+          if(!window.confirm(`Να διαγραφεί ο δοκιμαστικός εργαζόμενος «${e.fullName}»; Τα ανοιχτά προσχέδια ίσως χρειαστούν νέα δημιουργία.`))return false;
+          if(!await store.deleteEmployee(e.id))throw new Error(useSchedulerStore.getState().warningMessage||'Η διαγραφή απέτυχε.');
+          setMessage('Ο δοκιμαστικός εργαζόμενος διαγράφηκε. Δημιούργησε νέο προσχέδιο πριν από επόμενη δημοσίευση.');return true;
+        })}>Διαγραφή</button>}
       </div>)}
       <AbsencesPanel employees={employees} absences={absences} isAdmin isSaving={busy} isLoading={store.isAbsencesLoading} onCreateAbsence={store.createAbsence} onUpdateAbsence={store.updateAbsence} onCancelAbsence={store.cancelAbsence} onDeleteAbsence={store.deleteAbsence}/>
     </details>
@@ -76,15 +91,16 @@ export default function SchedulerWorkspaceV3({config,employees,absences,uid,onLo
       <section aria-label="Ώρες εργαζομένων"><h2 className="font-bold">Σύνολα</h2>{report.employeeHours.map(h=><p key={h.employeeId}>{draft.employees.find(e=>e.id===h.employeeId)?.fullName}: {h.hours} ώρες · {h.shiftCount} βάρδιες</p>)}</section>
       <details><summary>Εβδομαδιαίοι στόχοι και αποκλίσεις</summary><div className="overflow-x-auto"><table><thead><tr><th>Εργαζόμενος</th><th>Εβδομάδα</th><th>Ώρες</th><th>Στόχος</th><th>Διαφορά</th></tr></thead><tbody>{report.weeklyHours.map(h=><tr key={h.employeeId+h.weekStart}><td>{draft.employees.find(e=>e.id===h.employeeId)?.fullName}</td><td>{h.weekStart}{h.isPartialWeek?' (μερική εβδομάδα)':''}</td><td>{h.hours}</td><td>{h.targetHours??'—'}</td><td>{h.delta??'—'}</td></tr>)}</tbody></table></div></details>
       <WarningsPanelV3 warnings={report.warnings}/>
-      <button disabled={busy||!!roster.error} className="rounded border px-3 py-2" onClick={()=>run(async()=>{const revision=await repository.saveDraft(draft);setDraft(d=>({...d,revision}));setMessage('Το προσχέδιο αποθηκεύτηκε.');})}>Αποθήκευση προσχεδίου</button>
+      <button disabled={busy||!!roster.error} className="rounded border px-3 py-2" onClick={()=>run(async()=>{discardPending();const revision=await repository.saveDraft(draft);setDraft(d=>({...d,revision}));setMessage('Το προσχέδιο αποθηκεύτηκε.');})}>Αποθήκευση προσχεδίου</button>
       {report.warnings.length>0&&<label className="block"><input type="checkbox" checked={acceptWarnings} onChange={event=>setAcceptWarnings(event.target.checked)}/> Διάβασα τις προειδοποιήσεις και επιλέγω δημοσίευση.</label>}
-      <button disabled={busy||!!roster.error||(report.warnings.length>0&&!acceptWarnings)} className="rounded bg-emerald-700 px-3 py-2 text-white" onClick={()=>run(async()=>{
+      <button disabled={busy||!!roster.error||(report.warnings.length>0&&!acceptWarnings)||!!(pendingIntent&&!retryAllowed)} className="rounded bg-emerald-700 px-3 py-2 text-white" onClick={()=>run(async()=>{
         const {current,currentConfig}=currentInputs();const candidate=refreshDraftPeopleV3(draft,current.employees,current.absences,currentConfig);
         if(JSON.stringify(analyzeDraftV3(candidate).warnings)!==JSON.stringify(report.warnings)){setDraft(candidate);setAcceptWarnings(false);throw new Error('Οι προειδοποιήσεις άλλαξαν. Έλεγξέ τες πριν τη δημοσίευση.');}
         const tenantId=config.tenantId;
-        const snapshot=await publishDraftV3(candidate,{tenantId,uid,id:crypto.randomUUID(),timestamp:new Date().toISOString(),acceptWarnings},{reserve:(key,id)=>repository.reserve(tenantId,key,id),renderPdf:renderPublicationPdfV3,uploadPdf:(path,bytes)=>repository.uploadPdf(tenantId,path,bytes),finalize:s=>repository.finalize(s)});
+        const snapshot=demoTransport?await demoTransport.publish(candidate,acceptWarnings):await publishDraftV3(candidate,{tenantId,uid,id:crypto.randomUUID(),timestamp:new Date().toISOString(),acceptWarnings},{reserve:(key,id)=>repository.reserve(tenantId,key,id),renderPdf:renderPublicationPdfV3,uploadPdf:(path,bytes)=>repository.uploadPdf(tenantId,path,bytes),finalize:s=>repository.finalize(s)});
         setPublications(await repository.list(tenantId));setMessage(`Δημοσιεύτηκε η έκδοση ${snapshot.version}.`);
       })}>Δημοσίευση νέας έκδοσης</button>
+      {pendingIntent&&retryAllowed&&<button disabled={busy||pendingIntent.acceptWarnings!==acceptWarnings} className="rounded border px-3 py-2" onClick={()=>run(async()=>{const result=await demoTransport.retryPending(draft,acceptWarnings);setPublications(await repository.list(config.tenantId));setMessage(`Δημοσιεύτηκε η έκδοση ${result.version}.`);})}>Επανάληψη δημοσίευσης</button>}
     </>}
     <PublicationHistoryV3 publications={publications} onDownload={download} busy={busy} onCreateDraft={publication=>run(async()=>{const {current,currentConfig}=currentInputs();setDraft(createDraftFromPublicationV3(publication,{tenantId:config.tenantId,employees:current.employees,currentConfig,absences:current.absences}));setAcceptWarnings(false);setMessage(`Δημιουργήθηκε νέο προσχέδιο από την έκδοση ${publication.version}.`);})}/>
     {renderTools?.(draft)}

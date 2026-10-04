@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import PublicDemoApp from './demo/PublicDemoApp';
+import {publicDemoEnabled} from './demo/config';
 import AuthTicketCallback from "./components/auth/AuthTicketCallback";
 import CentralLandingPage from "./components/auth/CentralLandingPage";
 import ForgotPasswordPage from "./components/auth/ForgotPasswordPage";
@@ -47,6 +49,8 @@ export default function App() {
     window.addEventListener("popstate", handleNavigation);
     return () => window.removeEventListener("popstate", handleNavigation);
   }, []);
+
+  if(publicDemoEnabled)return <PublicDemoApp/>;
 
   // 1. Fail-closed on reserved or unknown hostnames (e.g. admin.shiftoryx.gr, foo.bar.shiftoryx.gr)
   if (tenantHostContext.mode === "reserved" || tenantHostContext.mode === "unknown") {

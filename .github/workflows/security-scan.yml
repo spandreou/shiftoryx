@@ -29,10 +29,13 @@ jobs:
         run: npm ci
 
       - name: npm audit HIGH/CRITICAL gate
-        run: npm run security:audit
+        run: node scripts/validate-npm-audit-exceptions.mjs --run
 
       - name: OWASP CVE Lite HIGH/CRITICAL gate
-        run: npm run security:cve
+        run: node scripts/validate-cve-audit-exceptions.mjs --run
+
+      - name: Audit exception fail-closed regression tests
+        run: node --test scripts/test-npm-audit-exceptions.mjs scripts/test-audit-gate-runtime.mjs
 
   repository-scan:
     name: Trivy repository scan

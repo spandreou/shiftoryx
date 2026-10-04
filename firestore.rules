@@ -93,33 +93,35 @@ service cloud.firestore {
     }
 
     function validEmployee() {
+      let d = request.resource.data;
+      let fixedDayOff = d.get('fixedDayOff', null);
       return request.resource.data.keys().hasAll(['fullName']) &&
         request.resource.data.keys().hasOnly(employeeFields()) &&
         request.resource.data.fullName is string &&
         request.resource.data.fullName.size() > 0 &&
-        validSchedulerProfileWrite() &&
-        isOptionalString('role') &&
-        isOptionalString('color') &&
-        isOptionalString('afm') &&
-        isOptionalString('phone') &&
-        isOptionalString('email') &&
-        isOptionalString('hireDate') &&
-        isOptionalString('scheduleRole') &&
-        isOptionalString('roleType') &&
-        isOptionalString('defaultShiftPreference') &&
-        isOptionalString('extraMode') &&
-        isOptionalString('activeFrom') &&
-        isOptionalString('activeTo') &&
-        isOptionalBool('isActive') &&
-        isOptionalBool('participatesInRotation') &&
-        isOptionalBool('participatesInSundayRotation') &&
-        isOptionalBool('weeklyFixedShiftSideRotation') &&
-        isOptionalBool('canCoverLeaves') &&
-        isOptionalBool('canWorkMorning') &&
-        isOptionalBool('canWorkIntermediate') &&
-        isOptionalBool('canWorkAfternoon') &&
-        isOptionalBool('canWorkSunday') &&
-        isOptionalIntOrNull('fixedDayOff');
+        d.get('role', '') is string &&
+        d.get('color', '') is string &&
+        d.get('afm', '') is string &&
+        d.get('phone', '') is string &&
+        d.get('email', '') is string &&
+        d.get('hireDate', '') is string &&
+        d.get('scheduleRole', '') is string &&
+        d.get('roleType', '') is string &&
+        d.get('defaultShiftPreference', '') is string &&
+        d.get('extraMode', '') is string &&
+        d.get('activeFrom', '') is string &&
+        d.get('activeTo', '') is string &&
+        d.get('isActive', false) is bool &&
+        d.get('participatesInRotation', false) is bool &&
+        d.get('participatesInSundayRotation', false) is bool &&
+        d.get('weeklyFixedShiftSideRotation', false) is bool &&
+        d.get('canCoverLeaves', false) is bool &&
+        d.get('canWorkMorning', false) is bool &&
+        d.get('canWorkIntermediate', false) is bool &&
+        d.get('canWorkAfternoon', false) is bool &&
+        d.get('canWorkSunday', false) is bool &&
+        (fixedDayOff == null || fixedDayOff is int) &&
+        validSchedulerProfileWrite();
     }
 
     function safeV3Id(value) {
@@ -176,8 +178,14 @@ service cloud.firestore {
     // Creating/replacing a profile writes only the canonical direct-time format.
     function validSchedulerProfileWrite() {
       return (!('schedulerV3' in request.resource.data) && (resource == null || !('schedulerV3' in resource.data))) ||
-        ('schedulerV3' in request.resource.data && (validEmployeeProfileV3(request.resource.data.schedulerV3) ||
-          (resource != null && 'schedulerV3' in resource.data && request.resource.data.schedulerV3 == resource.data.schedulerV3 && validLegacyEmployeeProfileV3(request.resource.data.schedulerV3))));
+        ('schedulerV3' in request.resource.data && validPresentSchedulerProfile(request.resource.data.schedulerV3));
+    }
+    function validPresentSchedulerProfile(p) {
+      // The canonical and legacy field allowlists are disjoint. Select exactly one
+      // validator so a rejected canonical write cannot exhaust the evaluator in
+      // a legacy fallback which can never accept a profileVersion field.
+      return p is map && (p.keys().hasAny(['profileVersion']) ? validEmployeeProfileV3(p) :
+        (resource != null && 'schedulerV3' in resource.data && p == resource.data.schedulerV3 && validLegacyEmployeeProfileV3(p)));
     }
     function validScheduleDraftV3(tenantId, draftId) {
       let d = request.resource.data;

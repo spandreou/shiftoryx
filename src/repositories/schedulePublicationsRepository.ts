@@ -6,6 +6,10 @@ import { analyzeDraftV3, decodeDraftProfilesV3, mapEmployeesV3, type DraftV3 } f
 import { projectionTargetsV3, projectionPayloadV3 } from '../services/publicationProjectionsV3.ts';
 import { validateSchedulerConfigV3 } from '../scheduler-engine-v3/index.ts';
 import type { EmployeeV3, SchedulerConfigV3, SchedulePublicationV3 } from '../scheduler-engine-v3/types.ts';
+import {publicDemoEnabled} from '../demo/config';
+import {browserDemoPublicationTransport} from '../demo/browserPublicationTransport.ts';
+import {browserDemoMutationTransport} from '../demo/browserMutationTransport.ts';
+import {normalizePreviewV3} from '../services/publicationIntentV3.ts';
 
 const clean = (data: unknown) => JSON.parse(JSON.stringify(data));
 function context(tenantId:string) {
@@ -17,6 +21,12 @@ function context(tenantId:string) {
 const idCheck=(id:string)=>{if(!/^[a-zA-Z0-9_-]{1,120}$/.test(id))throw new Error('Μη έγκυρο αναγνωριστικό.');return id;};
 export const schedulePublicationsRepository={
   async setEmployeeActive(tenantId:string,id:string,isActive:boolean) {
+    if(publicDemoEnabled){
+      const c=context(tenantId),snapshot=await getDoc(doc(db,c.root,'employees',idCheck(id)));
+      if(!snapshot.exists())throw new Error('Ο εργαζόμενος δεν βρέθηκε.');
+      const raw=snapshot.data().demoRevision,expectedRevision=Number.isSafeInteger(raw)&&raw>=0?raw:0;
+      await browserDemoMutationTransport(c.tenant).run('emp.active',{id,isActive,expectedRevision});return;
+    }
     const c=context(tenantId);const batch=writeBatch(db);
     batch.update(doc(db,c.root,'employees',idCheck(id)),{isActive});
     await batch.commit();
@@ -25,6 +35,14 @@ export const schedulePublicationsRepository={
     const c=context(config.tenantId);
     if(!validateSchedulerConfigV3(config).valid||employees.length>100)throw new Error('Μη έγκυρες ρυθμίσεις.');
     const canonicalEmployees=mapEmployeesV3(employees,config);
+    if(publicDemoEnabled){
+      const snapshot=await getDoc(doc(db,c.root,'settings','scheduler'));
+      if(!snapshot.exists())throw new Error('Οι ρυθμίσεις Demo δεν βρέθηκαν.');
+      const raw=snapshot.data().demoRevision,expectedRevision=Number.isSafeInteger(raw)&&raw>=0?raw:0;
+      await browserDemoMutationTransport(c.tenant).run('set.save',{config:clean(config),expectedRevision,
+        profiles:canonicalEmployees.map(employee=>({id:idCheck(employee.id),profile:clean(employee.schedulerV3)}))});
+      return;
+    }
     const batch=writeBatch(db);
     for(const employee of canonicalEmployees) {
       batch.update(doc(db,c.root,'employees',idCheck(employee.id)),{schedulerV3:clean(employee.schedulerV3)});
@@ -35,6 +53,12 @@ export const schedulePublicationsRepository={
   async saveDraft(draft:DraftV3) {
     draft=decodeDraftProfilesV3(draft);
     analyzeDraftV3(draft); const c=context(draft.config.tenantId);idCheck(draft.id);
+    if(publicDemoEnabled){
+      const wireDraft={...normalizePreviewV3(draft),revision:draft.revision??0};
+      const result=await browserDemoMutationTransport(c.tenant).run('drf.save',{draft:clean(wireDraft)});
+      if(!Number.isSafeInteger(result.revision)||Number(result.revision)<1)throw new Error('Δεν επιβεβαιώθηκε η αποθήκευση του προσχεδίου.');
+      return Number(result.revision);
+    }
     return runTransaction(db,async tx=>{
       const metadata=doc(db,c.root,'scheduleDrafts',draft.id);const previous=await tx.get(metadata);
       const prior=previous.data();
@@ -65,6 +89,7 @@ export const schedulePublicationsRepository={
   },
   async listDrafts(tenantId:string) {const c=context(tenantId);return (await getDocs(collection(db,c.root,'scheduleDrafts'))).docs.map(d=>({id:d.id,...d.data()}));},
   async reserve(tenantId:string,periodKey:string,id:string) {
+    if(publicDemoEnabled)throw new Error('Το demo απαιτεί δημοσίευση μέσω διακομιστή.');
     const c=context(tenantId);idCheck(id);idCheck(periodKey);
     return runTransaction(db,async tx=>{
       const counter=doc(db,c.root,'schedulePublicationCounters',periodKey), reservation=doc(db,c.root,'schedulePublicationReservations',id);
@@ -75,10 +100,12 @@ export const schedulePublicationsRepository={
     });
   },
   async uploadPdf(tenantId:string,path:string,bytes:Uint8Array) {
+    if(publicDemoEnabled)throw new Error('Το demo απαιτεί δημοσίευση μέσω διακομιστή.');
     const c=context(tenantId);if(!path.startsWith(c.root+'/schedule-publications/')||!path.endsWith('/schedule.pdf'))throw new Error('Μη έγκυρη διαδρομή PDF.');
     await uploadBytes(ref(storage,path),bytes,{contentType:'application/pdf'});
   },
   async finalize(snapshot:SchedulePublicationV3) {
+    if(publicDemoEnabled)throw new Error('Το demo απαιτεί δημοσίευση μέσω διακομιστή.');
     const c=context(snapshot.tenantId);idCheck(snapshot.id);idCheck(snapshot.periodKey);
     await runTransaction(db,async tx=>{
       const publication=doc(db,c.root,'schedulePublications',snapshot.id),index=doc(db,c.root,'schedulePublicationPeriods',snapshot.periodKey);
@@ -93,5 +120,5 @@ export const schedulePublicationsRepository={
     });
   },
   async list(tenantId:string) {const c=context(tenantId);return (await getDocs(collection(db,c.root,'schedulePublications'))).docs.map(d=>d.data() as SchedulePublicationV3).sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));},
-  async download(tenantId:string,publicationId:string) {const c=context(tenantId);idCheck(publicationId);return getBytes(ref(storage,`${c.root}/schedule-publications/${publicationId}/schedule.pdf`),10*1024*1024);},
+  async download(tenantId:string,publicationId:string) {const c=context(tenantId);idCheck(publicationId);if(publicDemoEnabled)return (await browserDemoPublicationTransport(c.tenant,async()=>{throw new Error('Download only');}).download(publicationId)).bytes;return getBytes(ref(storage,`${c.root}/schedule-publications/${publicationId}/schedule.pdf`),10*1024*1024);},
 };

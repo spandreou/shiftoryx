@@ -1,0 +1,313 @@
+// Demo-only generated Rules. Never deploy to a customer project.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isPlatformAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/platformAdmins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/platformAdmins/$(request.auth.uid)).data.status == 'ACTIVE';
+    }
+
+    function isTenantAdminRole(role) {
+      return role in ['OWNER'];
+    }
+
+
+    function demoAccess(tenantId) {
+      return request.auth != null && tenantId in ['demo-fuel','demo-cafe','demo-salon','demo-market'] &&
+        request.auth.token.publicDemo == true && request.auth.token.demoTenant == tenantId &&
+        get(/databases/$(database)/documents/demoState/$(tenantId)).data.resetting == false &&
+        request.auth.token.demoGeneration == get(/databases/$(database)/documents/demoState/$(tenantId)).data.generation;
+    }
+    function demoPublicReady(tenantId) {
+      return tenantId in ['demo-fuel','demo-cafe','demo-salon','demo-market'] &&
+        get(/databases/$(database)/documents/demoState/$(tenantId)).data.resetting == false;
+    }
+    function isTenantAdmin(tenantId) {
+      return isSignedIn() &&
+        demoAccess(tenantId) && !isPlatformAdmin() &&
+        exists(/databases/$(database)/documents/tenantMemberships/$(request.auth.uid + '_' + tenantId)) &&
+        get(/databases/$(database)/documents/tenantMemberships/$(request.auth.uid + '_' + tenantId)).data.uid == request.auth.uid &&
+        get(/databases/$(database)/documents/tenantMemberships/$(request.auth.uid + '_' + tenantId)).data.tenantId == tenantId &&
+        get(/databases/$(database)/documents/tenantMemberships/$(request.auth.uid + '_' + tenantId)).data.status == 'ACTIVE' &&
+        isTenantAdminRole(get(/databases/$(database)/documents/tenantMemberships/$(request.auth.uid + '_' + tenantId)).data.role);
+    }
+
+    function isAdmin() {
+      return false;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isActiveTenantMember(tenantId) {
+      return isTenantAdmin(tenantId);
+    }
+
+@@DEMO_VALIDATORS@@    match /employees/{employeeId} {
+      allow read, write: if false;
+    }
+
+    match /employees_public/{employeeId} {
+      allow read, write: if false;
+    }
+
+    match /employees_private/{employeeId} {
+      allow read, write: if false;
+    }
+
+    match /shifts/{shiftId} {
+      allow read, write: if false;
+    }
+
+    match /shiftTemplates/{templateId} {
+      allow read, write: if false;
+    }
+
+    match /published_schedules/{resourceId} {
+      allow read, write: if false;
+    }
+
+    match /monthly_schedule_exports/{exportId} {
+      allow read: if isTenantAdmin(resource.data.tenantId);
+      // The legacy monthly archive is disabled in the packaged V3 demo.
+      allow create: if false;
+      allow update: if isTenantAdmin(request.resource.data.tenantId) && validMonthlyScheduleExport(exportId);
+      allow delete: if isTenantAdmin(resource.data.tenantId);
+    }
+
+    match /authTickets/{ticketId} {
+      allow read, write: if false;
+    }
+
+    match /registrationTokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    match /registrationTokenLookups/{lookupId} {
+      allow read, write: if false;
+    }
+
+    match /platformAuditLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    match /rateLimits/{limitId} {
+      allow read, write: if false;
+    }
+
+    match /employeeAbsences/{absenceId} {
+      allow read, write: if false;
+    }
+
+    match /employeeAbsencesPublic/{absenceId} {
+      allow read, write: if false;
+    }
+
+    match /employee_absences_private/{absenceId} {
+      allow read, write: if false;
+    }
+
+    match /announcements/{announcementId} {
+      allow read, write: if false;
+    }
+
+    match /attendance_history/{historyId} {
+      allow read, write: if false;
+    }
+
+    match /week_locks/{weekId} {
+      allow read, write: if false;
+    }
+
+    match /week_history/{historyId} {
+      allow read, write: if false;
+    }
+
+    match /week_templates/{templateId} {
+      allow read, write: if false;
+    }
+
+    match /scheduler_settings/{settingsId} {
+      allow read, write: if false;
+    }
+
+    match /audit_logs/{auditLogId} {
+      allow read, write: if false;
+    }
+
+    match /platformAdmins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isAdmin() || isSelf(uid);
+      allow create, update: if isAdmin() && validUserProfile(uid);
+      allow delete: if isAdmin();
+    }
+
+    match /tenantMemberships/{membershipId} {
+      allow read: if isSignedIn() &&
+        (
+          (
+            resource.data.uid == request.auth.uid &&
+            resource.data.status == 'ACTIVE' &&
+            isTenantAdminRole(resource.data.role)
+          ) ||
+          (
+            resource.data.tenantId is string &&
+            isTenantAdmin(resource.data.tenantId)
+          )
+        );
+      allow create, update, delete: if false;
+    }
+
+    match /demoState/{tenantId} { allow read: if tenantId in ['demo-fuel','demo-cafe','demo-salon','demo-market']; allow write: if false; }
+
+    match /demoAdmission/{tenantId} { allow read, write: if false; }
+    match /demoAuditReceipts/{tenantId} { allow read, write: if false; }
+    match /demoAdmissionDaily/{tenantId} { allow read, write: if false; }
+    match /demoAdmissionRate/{tenantId} { allow read, write: if false; }
+    match /demoPdfLimits/{tenantId} { allow read, write: if false; }
+    match /demoControl/{tenantId} { allow read, write: if false; }
+    match /demoPdfControls/{tenantId} { allow read, write: if false; }
+    match /demoPdfLimits/{tenantId} { allow read, write: if false; }
+    match /demoPdfRequests/{tenantId}/intents/{intentId} { allow read, write: if false; }
+    match /tenants/{tenantId} {
+      match /demoPublicationArtifacts/{publicationId} { allow read, write: if false; }
+      allow read: if isTenantAdmin(tenantId);
+      allow create, update: if isAdmin() && validTenant();
+      allow delete: if isAdmin();
+
+      match /employees/{employeeId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /publicEmployees/{employeeId} {
+        allow read: if demoPublicReady(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /shifts/{shiftId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /shiftTemplates/{templateId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if false;
+        allow update: if isTenantAdmin(tenantId) && validTemplate();
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /absences/{absenceId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /publicSchedules/{weekStart} {
+        allow read: if demoPublicReady(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /publicMonths/{yearMonth} {
+        allow read: if demoPublicReady(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /settings/{settingsId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /scheduleDrafts/{draftId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+      match /schedulePublicationCounters/{periodKey} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+      match /schedulePublicationReservations/{publicationId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+      match /schedulePublications/{publicationId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+      match /schedulePublicationPeriods/{periodKey} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /announcements/{announcementId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /attendanceHistory/{historyId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if false;
+        allow update: if isTenantAdmin(tenantId) && validAttendanceHistory();
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /weekLocks/{weekId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if false;
+        allow update: if isTenantAdmin(tenantId) && validWeekLock();
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /weekHistory/{historyId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if false;
+        allow update: if isTenantAdmin(tenantId) && validWeekHistory();
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /weekTemplates/{templateId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if false;
+        allow update: if isTenantAdmin(tenantId) && validTemplate();
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /subscription/{subscriptionId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if false;
+        allow update: if isTenantAdmin(tenantId) && validTenantSubscription();
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /tokenRequests/{requestId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create: if false;
+        allow update: if isTenantAdmin(tenantId) && validTenantTokenRequest();
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /auditLogs/{auditLogId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /publicAnnouncements/{announcementId} {
+        allow read: if demoPublicReady(tenantId);
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

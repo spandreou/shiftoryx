@@ -1,0 +1,1554 @@
+[
+  {
+    "slug": "qa-fuel",
+    "name": "Fuel Station Demo",
+    "category": "FUEL_STATION",
+    "domain": "qa-fuel.shiftoryx.gr",
+    "qaSuite": "scheduler-v3-realistic-v1",
+    "story": "Πρατήριο 06–22. Πέντε κανονικοί εργαζόμενοι και ένας ρητός αναπληρωματικός. Η άδεια του Γιάννη δυσκολεύει την πρωινή κάλυψη.",
+    "config": {
+      "schemaVersion": 3,
+      "tenantId": "qa-fuel",
+      "timezone": "Europe/Athens",
+      "weekStartDay": 1,
+      "templateId": "scheduler-v3-realistic-v1",
+      "templateVersion": 1,
+      "operatingDays": [
+        {
+          "weekday": "MONDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "TUESDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "WEDNESDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "THURSDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "FRIDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "SATURDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "SUNDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        }
+      ],
+      "shiftTemplates": [
+        {
+          "id": "early",
+          "label": "QA 06:00–14:00",
+          "shortCode": "EARLY",
+          "shiftType": "CUSTOM",
+          "startTime": "06:00",
+          "endTime": "14:00",
+          "durationHours": 8,
+          "crossMidnight": false,
+          "isActive": true
+        },
+        {
+          "id": "late",
+          "label": "QA 14:00–22:00",
+          "shortCode": "LATE",
+          "shiftType": "CUSTOM",
+          "startTime": "14:00",
+          "endTime": "22:00",
+          "durationHours": 8,
+          "crossMidnight": false,
+          "isActive": true
+        }
+      ],
+      "coverageRequirements": [
+        {
+          "weekday": "MONDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "TUESDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "WEDNESDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "THURSDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "FRIDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "SATURDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "SUNDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 1
+            }
+          ]
+        }
+      ],
+      "generationDefaults": {
+        "balanceWeeklyTargetsForMonth": true
+      },
+      "warningPolicies": {
+        "minRestIntervalHours": 11,
+        "maxDailyHours": 10,
+        "maxWeeklyHours": 48,
+        "maxConsecutiveWorkingDays": 6
+      }
+    },
+    "employees": [
+      {
+        "id": "qa-fuel-e1",
+        "fullName": "QA Άννα",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 0,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "06:00",
+            "endTime": "14:00"
+          },
+          "rotateStandardShiftWeekly": true,
+          "rotationAlternateShift": {
+            "startTime": "14:00",
+            "endTime": "22:00"
+          },
+          "rotationAnchorWeekStart": "2026-09-07"
+        }
+      },
+      {
+        "id": "qa-fuel-e2",
+        "fullName": "QA Γιάννης",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 2,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "06:00",
+            "endTime": "14:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-fuel-e3",
+        "fullName": "QA Μαρία",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 3,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "14:00",
+            "endTime": "22:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-fuel-e4",
+        "fullName": "QA Πέτρος",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 4,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "14:00",
+            "endTime": "22:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-fuel-e5",
+        "fullName": "QA Ελένη",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 6,
+          "targetWeeklyHours": 20,
+          "standardShift": {
+            "startTime": "06:00",
+            "endTime": "14:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-fuel-e6",
+        "fullName": "QA Νίκος — αναπλήρωση",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "SUBSTITUTE_ONLY",
+          "fixedDayOff": 0,
+          "targetWeeklyHours": 20,
+          "standardShift": {
+            "startTime": "14:00",
+            "endTime": "22:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      }
+    ],
+    "absences": [
+      {
+        "id": "qa-fuel-absence-2",
+        "employeeId": "qa-fuel-e2",
+        "type": "LEAVE",
+        "scope": "FULL_DAY",
+        "status": "APPROVED",
+        "startDate": "2026-09-09",
+        "endDate": "2026-09-11"
+      }
+    ]
+  },
+  {
+    "slug": "qa-cafe",
+    "name": "Café Demo",
+    "category": "CAFE",
+    "domain": "qa-cafe.shiftoryx.gr",
+    "qaSuite": "scheduler-v3-realistic-v1",
+    "story": "Καφέ με πρωινή αιχμή και αυξημένη ζήτηση Παρασκευή/Σαββατοκύριακο. Η άδεια της Σοφίας απαιτεί ανακατανομή.",
+    "config": {
+      "schemaVersion": 3,
+      "tenantId": "qa-cafe",
+      "timezone": "Europe/Athens",
+      "weekStartDay": 1,
+      "templateId": "scheduler-v3-realistic-v1",
+      "templateVersion": 1,
+      "operatingDays": [
+        {
+          "weekday": "MONDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "TUESDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "WEDNESDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "THURSDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "FRIDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "SATURDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "SUNDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "06:00",
+              "closeTime": "22:00",
+              "crossMidnight": false
+            }
+          ]
+        }
+      ],
+      "shiftTemplates": [
+        {
+          "id": "early",
+          "label": "QA 06:00–14:00",
+          "shortCode": "EARLY",
+          "shiftType": "CUSTOM",
+          "startTime": "06:00",
+          "endTime": "14:00",
+          "durationHours": 8,
+          "crossMidnight": false,
+          "isActive": true
+        },
+        {
+          "id": "mid",
+          "label": "QA 10:00–18:00",
+          "shortCode": "MID",
+          "shiftType": "CUSTOM",
+          "startTime": "10:00",
+          "endTime": "18:00",
+          "durationHours": 8,
+          "crossMidnight": false,
+          "isActive": true
+        },
+        {
+          "id": "late",
+          "label": "QA 14:00–22:00",
+          "shortCode": "LATE",
+          "shiftType": "CUSTOM",
+          "startTime": "14:00",
+          "endTime": "22:00",
+          "durationHours": 8,
+          "crossMidnight": false,
+          "isActive": true
+        }
+      ],
+      "coverageRequirements": [
+        {
+          "weekday": "MONDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 1
+            }
+          ]
+        },
+        {
+          "weekday": "TUESDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 1
+            }
+          ]
+        },
+        {
+          "weekday": "WEDNESDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 1
+            }
+          ]
+        },
+        {
+          "weekday": "THURSDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "FRIDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "SATURDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 3
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 3
+            }
+          ]
+        },
+        {
+          "weekday": "SUNDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        }
+      ],
+      "generationDefaults": {
+        "balanceWeeklyTargetsForMonth": true
+      },
+      "warningPolicies": {
+        "minRestIntervalHours": 11,
+        "maxDailyHours": 10,
+        "maxWeeklyHours": 48,
+        "maxConsecutiveWorkingDays": 6
+      }
+    },
+    "employees": [
+      {
+        "id": "qa-cafe-e1",
+        "fullName": "QA Σοφία",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 1,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "06:00",
+            "endTime": "14:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-cafe-e2",
+        "fullName": "QA Κώστας",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 2,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "06:00",
+            "endTime": "14:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-cafe-e3",
+        "fullName": "QA Δανάη",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 3,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "10:00",
+            "endTime": "18:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-cafe-e4",
+        "fullName": "QA Αλέξης",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 4,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "14:00",
+            "endTime": "22:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-cafe-e5",
+        "fullName": "QA Λένα",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 5,
+          "targetWeeklyHours": 20,
+          "standardShift": {
+            "startTime": "10:00",
+            "endTime": "18:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-cafe-e6",
+        "fullName": "QA Μάνος",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 1,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "14:00",
+            "endTime": "22:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-cafe-e7",
+        "fullName": "QA Ιωάννα",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 2,
+          "targetWeeklyHours": 20,
+          "standardShift": {
+            "startTime": "06:00",
+            "endTime": "14:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-cafe-e8",
+        "fullName": "QA Ορέστης",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 3,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "14:00",
+            "endTime": "22:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      }
+    ],
+    "absences": [
+      {
+        "id": "qa-cafe-absence-1",
+        "employeeId": "qa-cafe-e1",
+        "type": "LEAVE",
+        "scope": "FULL_DAY",
+        "status": "APPROVED",
+        "startDate": "2026-09-10",
+        "endDate": "2026-09-12"
+      }
+    ]
+  },
+  {
+    "slug": "qa-salon",
+    "name": "Hair Salon Demo",
+    "category": "HAIR_SALON",
+    "domain": "qa-salon.shiftoryx.gr",
+    "qaSuite": "scheduler-v3-realistic-v1",
+    "story": "Κομμωτήριο Τρίτη–Σάββατο. Δύο ανεξάρτητες εναλλαγές εξάωρων βαρδιών και σταθερά προσωπικά ωράρια.",
+    "config": {
+      "schemaVersion": 3,
+      "tenantId": "qa-salon",
+      "timezone": "Europe/Athens",
+      "weekStartDay": 1,
+      "templateId": "scheduler-v3-realistic-v1",
+      "templateVersion": 1,
+      "operatingDays": [
+        {
+          "weekday": "MONDAY",
+          "isOpen": false,
+          "windows": []
+        },
+        {
+          "weekday": "TUESDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "08:00",
+              "closeTime": "20:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "WEDNESDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "08:00",
+              "closeTime": "20:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "THURSDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "08:00",
+              "closeTime": "20:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "FRIDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "08:00",
+              "closeTime": "20:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "SATURDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "08:00",
+              "closeTime": "20:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "SUNDAY",
+          "isOpen": false,
+          "windows": []
+        }
+      ],
+      "shiftTemplates": [
+        {
+          "id": "early",
+          "label": "QA 08:00–14:00",
+          "shortCode": "EARLY",
+          "shiftType": "CUSTOM",
+          "startTime": "08:00",
+          "endTime": "14:00",
+          "durationHours": 6,
+          "crossMidnight": false,
+          "isActive": true
+        },
+        {
+          "id": "mid",
+          "label": "QA 10:00–18:00",
+          "shortCode": "MID",
+          "shiftType": "CUSTOM",
+          "startTime": "10:00",
+          "endTime": "18:00",
+          "durationHours": 8,
+          "crossMidnight": false,
+          "isActive": true
+        },
+        {
+          "id": "late",
+          "label": "QA 14:00–20:00",
+          "shortCode": "LATE",
+          "shiftType": "CUSTOM",
+          "startTime": "14:00",
+          "endTime": "20:00",
+          "durationHours": 6,
+          "crossMidnight": false,
+          "isActive": true
+        }
+      ],
+      "coverageRequirements": [
+        {
+          "weekday": "MONDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 0
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 0
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 0
+            }
+          ]
+        },
+        {
+          "weekday": "TUESDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 1
+            }
+          ]
+        },
+        {
+          "weekday": "WEDNESDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 1
+            }
+          ]
+        },
+        {
+          "weekday": "THURSDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 1
+            }
+          ]
+        },
+        {
+          "weekday": "FRIDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 1
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 1
+            }
+          ]
+        },
+        {
+          "weekday": "SATURDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "SUNDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 0
+            },
+            {
+              "shiftTemplateId": "mid",
+              "headcount": 0
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 0
+            }
+          ]
+        }
+      ],
+      "generationDefaults": {
+        "balanceWeeklyTargetsForMonth": true
+      },
+      "warningPolicies": {
+        "minRestIntervalHours": 11,
+        "maxDailyHours": 10,
+        "maxWeeklyHours": 48,
+        "maxConsecutiveWorkingDays": 6
+      }
+    },
+    "employees": [
+      {
+        "id": "qa-salon-e1",
+        "fullName": "QA Χριστίνα",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 1,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "08:00",
+            "endTime": "14:00"
+          },
+          "rotateStandardShiftWeekly": true,
+          "rotationAlternateShift": {
+            "startTime": "14:00",
+            "endTime": "20:00"
+          },
+          "rotationAnchorWeekStart": "2026-09-07"
+        }
+      },
+      {
+        "id": "qa-salon-e2",
+        "fullName": "QA Βασίλης",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 0,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "14:00",
+            "endTime": "20:00"
+          },
+          "rotateStandardShiftWeekly": true,
+          "rotationAlternateShift": {
+            "startTime": "08:00",
+            "endTime": "14:00"
+          },
+          "rotationAnchorWeekStart": "2026-09-07"
+        }
+      },
+      {
+        "id": "qa-salon-e3",
+        "fullName": "QA Νάντια",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 1,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "10:00",
+            "endTime": "18:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-salon-e4",
+        "fullName": "QA Άρης",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 0,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "10:00",
+            "endTime": "18:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-salon-e5",
+        "fullName": "QA Ράνια",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 3,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "14:00",
+            "endTime": "20:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-salon-e6",
+        "fullName": "QA Δήμητρα",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 2,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "08:00",
+            "endTime": "14:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      }
+    ],
+    "absences": []
+  },
+  {
+    "slug": "qa-market",
+    "name": "Mini Market Demo",
+    "category": "RETAIL",
+    "domain": "qa-market.shiftoryx.gr",
+    "qaSuite": "scheduler-v3-realistic-v1",
+    "story": "Mini market επτά ημερών με τρία άτομα ανά βάρδια το Σάββατο και μειωμένο απογευματινό προσωπικό Κυριακής.",
+    "config": {
+      "schemaVersion": 3,
+      "tenantId": "qa-market",
+      "timezone": "Europe/Athens",
+      "weekStartDay": 1,
+      "templateId": "scheduler-v3-realistic-v1",
+      "templateVersion": 1,
+      "operatingDays": [
+        {
+          "weekday": "MONDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "07:00",
+              "closeTime": "23:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "TUESDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "07:00",
+              "closeTime": "23:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "WEDNESDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "07:00",
+              "closeTime": "23:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "THURSDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "07:00",
+              "closeTime": "23:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "FRIDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "07:00",
+              "closeTime": "23:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "SATURDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "07:00",
+              "closeTime": "23:00",
+              "crossMidnight": false
+            }
+          ]
+        },
+        {
+          "weekday": "SUNDAY",
+          "isOpen": true,
+          "windows": [
+            {
+              "openTime": "07:00",
+              "closeTime": "23:00",
+              "crossMidnight": false
+            }
+          ]
+        }
+      ],
+      "shiftTemplates": [
+        {
+          "id": "early",
+          "label": "QA 07:00–15:00",
+          "shortCode": "EARLY",
+          "shiftType": "CUSTOM",
+          "startTime": "07:00",
+          "endTime": "15:00",
+          "durationHours": 8,
+          "crossMidnight": false,
+          "isActive": true
+        },
+        {
+          "id": "late",
+          "label": "QA 15:00–23:00",
+          "shortCode": "LATE",
+          "shiftType": "CUSTOM",
+          "startTime": "15:00",
+          "endTime": "23:00",
+          "durationHours": 8,
+          "crossMidnight": false,
+          "isActive": true
+        }
+      ],
+      "coverageRequirements": [
+        {
+          "weekday": "MONDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "TUESDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "WEDNESDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "THURSDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "FRIDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 2
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        },
+        {
+          "weekday": "SATURDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 3
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 3
+            }
+          ]
+        },
+        {
+          "weekday": "SUNDAY",
+          "slots": [
+            {
+              "shiftTemplateId": "early",
+              "headcount": 3
+            },
+            {
+              "shiftTemplateId": "late",
+              "headcount": 2
+            }
+          ]
+        }
+      ],
+      "generationDefaults": {
+        "balanceWeeklyTargetsForMonth": true
+      },
+      "warningPolicies": {
+        "minRestIntervalHours": 11,
+        "maxDailyHours": 10,
+        "maxWeeklyHours": 48,
+        "maxConsecutiveWorkingDays": 6
+      }
+    },
+    "employees": [
+      {
+        "id": "qa-market-e1",
+        "fullName": "QA Γιώργος",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 1,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "07:00",
+            "endTime": "15:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-market-e2",
+        "fullName": "QA Κατερίνα",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 2,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "07:00",
+            "endTime": "15:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-market-e3",
+        "fullName": "QA Στέλιος",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 3,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "15:00",
+            "endTime": "23:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-market-e4",
+        "fullName": "QA Αθηνά",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 4,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "15:00",
+            "endTime": "23:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-market-e5",
+        "fullName": "QA Θοδωρής",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 5,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "07:00",
+            "endTime": "15:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-market-e6",
+        "fullName": "QA Βίκυ",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 6,
+          "targetWeeklyHours": 20,
+          "standardShift": {
+            "startTime": "15:00",
+            "endTime": "23:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-market-e7",
+        "fullName": "QA Ηλίας",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 0,
+          "targetWeeklyHours": 40,
+          "standardShift": {
+            "startTime": "07:00",
+            "endTime": "15:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-market-e8",
+        "fullName": "QA Μυρτώ",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 2,
+          "targetWeeklyHours": 32,
+          "standardShift": {
+            "startTime": "15:00",
+            "endTime": "23:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      },
+      {
+        "id": "qa-market-e9",
+        "fullName": "QA Τάσος",
+        "isActive": true,
+        "color": "#2563eb",
+        "schedulerV3": {
+          "profileVersion": 2,
+          "workMode": "NORMAL",
+          "fixedDayOff": 3,
+          "targetWeeklyHours": 20,
+          "standardShift": {
+            "startTime": "07:00",
+            "endTime": "15:00"
+          },
+          "rotateStandardShiftWeekly": false,
+          "rotationAlternateShift": null,
+          "rotationAnchorWeekStart": null
+        }
+      }
+    ],
+    "absences": [
+      {
+        "id": "qa-market-absence-3",
+        "employeeId": "qa-market-e3",
+        "type": "LEAVE",
+        "scope": "FULL_DAY",
+        "status": "APPROVED",
+        "startDate": "2026-09-11",
+        "endDate": "2026-09-13"
+      }
+    ]
+  }
+]

@@ -1,0 +1,661 @@
+{
+  "schemaVersion": 1,
+  "project": "root",
+  "owner": "ShiftOryx repository owner / security maintainer",
+  "exceptions": [
+    {
+      "advisoryId": "GHSA-m9gg-hp2v-232j",
+      "severity": "high",
+      "reason": "The vulnerable getAuthContext server-certificate authorization implementation is absent from the production browser artifact; ShiftOryx creates no gRPC server and uses Firestore as a browser client. Patched gRPC lies outside upstream ~1.9.0. Temporary exception only.",
+      "reviewedOn": "2026-10-03",
+      "reviewBy": "2026-11-03",
+      "allowedPackages": [
+        {
+          "name": "firebase",
+          "version": "11.10.0",
+          "dependencyPath": "node_modules/firebase",
+          "dev": false,
+          "auditFingerprint": {
+            "name": "firebase",
+            "severity": "high",
+            "isDirect": true,
+            "via": [
+              "@firebase/firestore",
+              "@firebase/firestore-compat"
+            ],
+            "effects": [],
+            "range": "0.900.22 || 6.0.2-0 - 6.0.2-canary.42eae23 || 6.0.3-0 - 6.0.4-canary.bc4a844 || 7.9.1-0 - 7.9.1-canary.0396117e || 7.13.2-0 - 7.13.2-canary.ce3addba || 7.14.0-0 - 7.15.1 || 8.10.0-20217172214 - 8.10.0-canary.f40c0db53 || 9.0.0-20217250818 - 9.0.0-canary.d0d3acb10 || 9.0.1-2021727231341 - 9.0.1-canary.e039e1472 || 9.0.2-2021891633 - 9.0.2-canary.ff9baf70c || 9.0.3-202181503543 - 9.1.0-canary.f7d8324a1 || 9.1.1-2021830195733 - 9.1.1-canary.e70de6201 || 9.1.2-20219523556 - 9.1.2-canary.fc1d36497 || 9.13.1-20221108184443 - 9.14.0-canary.fde5adf63 || >=9.15.0-20221206221533",
+            "nodes": [
+              "node_modules/firebase"
+            ],
+            "fixAvailable": {
+              "name": "firebase",
+              "version": "9.14.0",
+              "isSemVerMajor": true
+            }
+          },
+          "lockFingerprint": {
+            "version": "11.10.0",
+            "resolved": "https://registry.npmjs.org/firebase/-/firebase-11.10.0.tgz",
+            "integrity": "sha512-nKBXoDzF0DrXTBQJlZa+sbC5By99ysYU1D6PkMRYknm0nCW7rJly47q492Ht7Ndz5MeYSBuboKuhS1e6mFC03w==",
+            "license": "Apache-2.0",
+            "dependencies": {
+              "@firebase/ai": "1.4.1",
+              "@firebase/analytics": "0.10.17",
+              "@firebase/analytics-compat": "0.2.23",
+              "@firebase/app": "0.13.2",
+              "@firebase/app-check": "0.10.1",
+              "@firebase/app-check-compat": "0.3.26",
+              "@firebase/app-compat": "0.4.2",
+              "@firebase/app-types": "0.9.3",
+              "@firebase/auth": "1.10.8",
+              "@firebase/auth-compat": "0.5.28",
+              "@firebase/data-connect": "0.3.10",
+              "@firebase/database": "1.0.20",
+              "@firebase/database-compat": "2.0.11",
+              "@firebase/firestore": "4.8.0",
+              "@firebase/firestore-compat": "0.3.53",
+              "@firebase/functions": "0.12.9",
+              "@firebase/functions-compat": "0.3.26",
+              "@firebase/installations": "0.6.18",
+              "@firebase/installations-compat": "0.2.18",
+              "@firebase/messaging": "0.12.22",
+              "@firebase/messaging-compat": "0.2.22",
+              "@firebase/performance": "0.7.7",
+              "@firebase/performance-compat": "0.2.20",
+              "@firebase/remote-config": "0.6.5",
+              "@firebase/remote-config-compat": "0.2.18",
+              "@firebase/storage": "0.13.14",
+              "@firebase/storage-compat": "0.3.24",
+              "@firebase/util": "1.12.1"
+            }
+          }
+        },
+        {
+          "name": "@firebase/firestore",
+          "version": "4.8.0",
+          "dependencyPath": "node_modules/@firebase/firestore",
+          "dev": false,
+          "auditFingerprint": {
+            "name": "@firebase/firestore",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              "@grpc/grpc-js"
+            ],
+            "effects": [
+              "@firebase/firestore-compat",
+              "firebase"
+            ],
+            "range": "1.3.1-0 - 1.3.1-canary.df1b588 || 1.3.2-0 - 1.3.3-canary.bc4a844 || 1.13.1-0 - 1.13.1-canary.ce3addba || 1.14.0-0 - 1.15.1 || 3.7.3-20221108184443 - 3.7.3-canary.fde5adf63 || >=3.8.0-20221206221533",
+            "nodes": [
+              "node_modules/@firebase/firestore"
+            ],
+            "fixAvailable": {
+              "name": "firebase",
+              "version": "9.14.0",
+              "isSemVerMajor": true
+            }
+          },
+          "lockFingerprint": {
+            "version": "4.8.0",
+            "resolved": "https://registry.npmjs.org/@firebase/firestore/-/firestore-4.8.0.tgz",
+            "integrity": "sha512-QSRk+Q1/CaabKyqn3C32KSFiOdZpSqI9rpLK5BHPcooElumOBooPFa6YkDdiT+/KhJtel36LdAacha9BptMj2A==",
+            "license": "Apache-2.0",
+            "dependencies": {
+              "@firebase/component": "0.6.18",
+              "@firebase/logger": "0.4.4",
+              "@firebase/util": "1.12.1",
+              "@firebase/webchannel-wrapper": "1.0.3",
+              "@grpc/grpc-js": "~1.9.0",
+              "@grpc/proto-loader": "^0.7.8",
+              "tslib": "^2.1.0"
+            },
+            "engines": {
+              "node": ">=18.0.0"
+            },
+            "peerDependencies": {
+              "@firebase/app": "0.x"
+            }
+          }
+        },
+        {
+          "name": "@firebase/firestore-compat",
+          "version": "0.3.53",
+          "dependencyPath": "node_modules/@firebase/firestore-compat",
+          "dev": false,
+          "auditFingerprint": {
+            "name": "@firebase/firestore-compat",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              "@firebase/firestore"
+            ],
+            "effects": [
+              "firebase"
+            ],
+            "range": "<=0.0.900-exp.520ca39d0 || 0.2.3-20221108184443 - 0.2.3-canary.fde5adf63 || >=0.3.0-20221206221533",
+            "nodes": [
+              "node_modules/@firebase/firestore-compat"
+            ],
+            "fixAvailable": {
+              "name": "firebase",
+              "version": "9.14.0",
+              "isSemVerMajor": true
+            }
+          },
+          "lockFingerprint": {
+            "version": "0.3.53",
+            "resolved": "https://registry.npmjs.org/@firebase/firestore-compat/-/firestore-compat-0.3.53.tgz",
+            "integrity": "sha512-qI3yZL8ljwAYWrTousWYbemay2YZa+udLWugjdjju2KODWtLG94DfO4NALJgPLv8CVGcDHNFXoyQexdRA0Cz8Q==",
+            "license": "Apache-2.0",
+            "dependencies": {
+              "@firebase/component": "0.6.18",
+              "@firebase/firestore": "4.8.0",
+              "@firebase/firestore-types": "3.0.3",
+              "@firebase/util": "1.12.1",
+              "tslib": "^2.1.0"
+            },
+            "engines": {
+              "node": ">=18.0.0"
+            },
+            "peerDependencies": {
+              "@firebase/app-compat": "0.x"
+            }
+          }
+        },
+        {
+          "name": "@grpc/grpc-js",
+          "version": "1.9.16",
+          "dependencyPath": "node_modules/@grpc/grpc-js",
+          "dev": false,
+          "auditFingerprint": {
+            "name": "@grpc/grpc-js",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              {
+                "source": 1240623,
+                "name": "@grpc/grpc-js",
+                "dependency": "@grpc/grpc-js",
+                "title": "@grpc/grpc-js: In certain configurations, getAuthContext can return unauthorized certificates as though they were authorized",
+                "url": "https://github.com/advisories/GHSA-m9gg-hp2v-232j",
+                "severity": "high",
+                "cwe": [
+                  "CWE-295"
+                ],
+                "cvss": {
+                  "score": 7.4,
+                  "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+                },
+                "range": "<1.13.6"
+              },
+              {
+                "source": 1240625,
+                "name": "@grpc/grpc-js",
+                "dependency": "@grpc/grpc-js",
+                "title": "@grpc/grpc-js: The server transmits some error messages thrown by method handlers to the client in status messages",
+                "url": "https://github.com/advisories/GHSA-f596-whhp-79r4",
+                "severity": "low",
+                "cwe": [
+                  "CWE-550"
+                ],
+                "cvss": {
+                  "score": 3.7,
+                  "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N"
+                },
+                "range": "<1.13.6"
+              }
+            ],
+            "effects": [
+              "@firebase/firestore"
+            ],
+            "range": "<=1.13.5",
+            "nodes": [
+              "node_modules/@grpc/grpc-js"
+            ],
+            "fixAvailable": {
+              "name": "firebase",
+              "version": "9.14.0",
+              "isSemVerMajor": true
+            }
+          },
+          "lockFingerprint": {
+            "version": "1.9.16",
+            "resolved": "https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.9.16.tgz",
+            "integrity": "sha512-wE4Ut/olIzfKqp631XrG+wbF0v1vWFN4YL9FyXC2LJiG33DsV7PLzURjrCvY/6je2ntdRkeLpPDluzSRGaVltQ==",
+            "license": "Apache-2.0",
+            "dependencies": {
+              "@grpc/proto-loader": "^0.7.8",
+              "@types/node": ">=12.12.47"
+            },
+            "engines": {
+              "node": "^8.13.0 || >=10.10.0"
+            }
+          }
+        }
+      ],
+      "incomingEdges": [
+        {
+          "from": "",
+          "kind": "dependencies",
+          "name": "firebase",
+          "range": "^11.7.0",
+          "to": "node_modules/firebase"
+        },
+        {
+          "from": "node_modules/@firebase/firestore",
+          "kind": "dependencies",
+          "name": "@grpc/grpc-js",
+          "range": "~1.9.0",
+          "to": "node_modules/@grpc/grpc-js"
+        },
+        {
+          "from": "node_modules/@firebase/firestore-compat",
+          "kind": "dependencies",
+          "name": "@firebase/firestore",
+          "range": "4.8.0",
+          "to": "node_modules/@firebase/firestore"
+        },
+        {
+          "from": "node_modules/firebase",
+          "kind": "dependencies",
+          "name": "@firebase/firestore",
+          "range": "4.8.0",
+          "to": "node_modules/@firebase/firestore"
+        },
+        {
+          "from": "node_modules/firebase",
+          "kind": "dependencies",
+          "name": "@firebase/firestore-compat",
+          "range": "0.3.53",
+          "to": "node_modules/@firebase/firestore-compat"
+        }
+      ],
+      "ancillaryAdvisories": [
+        {
+          "advisoryId": "GHSA-f596-whhp-79r4",
+          "severity": "low"
+        }
+      ],
+      "invalidationConditions": [
+        "Introducing a gRPC server, ServerCredentials, getAuthContext or certificate-based server authorization.",
+        "Root Firebase/Firestore server packaging or package/version/path changes.",
+        "Advisory content, severity or exploit evidence changes; compatible upstream fixed range becomes available.",
+        "Review date expires."
+      ],
+      "cveFingerprint": [
+        {
+          "id": "GHSA-f596-whhp-79r4",
+          "aliases": [
+            "CVE-2026-101915"
+          ],
+          "summary": "@grpc/grpc-js: The server transmits some error messages thrown by method handlers to the client in status messages",
+          "severity": "low",
+          "cvssScore": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N"
+        },
+        {
+          "id": "GHSA-m9gg-hp2v-232j",
+          "aliases": [
+            "CVE-2026-101916"
+          ],
+          "summary": "@grpc/grpc-js: In certain configurations, getAuthContext can return unauthorized certificates as though they were authorized",
+          "severity": "high",
+          "cvssScore": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+        }
+      ]
+    },
+    {
+      "advisoryId": "GHSA-vfj7-8cjw-p6xm",
+      "severity": "high",
+      "reason": "The braces chain is development/build-only with repository-controlled content patterns, absent from browser runtime and unreachable from public or tenant request input. No patched braces release exists. A Tailwind 4 migration is disproportionate for this finding.",
+      "reviewedOn": "2026-10-03",
+      "reviewBy": "2026-11-03",
+      "allowedPackages": [
+        {
+          "name": "tailwindcss",
+          "version": "3.4.19",
+          "dependencyPath": "node_modules/tailwindcss",
+          "dev": true,
+          "auditFingerprint": {
+            "name": "tailwindcss",
+            "severity": "high",
+            "isDirect": true,
+            "via": [
+              "chokidar",
+              "fast-glob",
+              "micromatch"
+            ],
+            "effects": [],
+            "range": "<=0.0.0-oxide-insiders.ff2c25f || 2.1.0-canary.1 - 3.4.19",
+            "nodes": [
+              "node_modules/tailwindcss"
+            ],
+            "fixAvailable": {
+              "name": "tailwindcss",
+              "version": "4.3.3",
+              "isSemVerMajor": true
+            }
+          },
+          "lockFingerprint": {
+            "version": "3.4.19",
+            "resolved": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.19.tgz",
+            "integrity": "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ==",
+            "dev": true,
+            "license": "MIT",
+            "dependencies": {
+              "@alloc/quick-lru": "^5.2.0",
+              "arg": "^5.0.2",
+              "chokidar": "^3.6.0",
+              "didyoumean": "^1.2.2",
+              "dlv": "^1.1.3",
+              "fast-glob": "^3.3.2",
+              "glob-parent": "^6.0.2",
+              "is-glob": "^4.0.3",
+              "jiti": "^1.21.7",
+              "lilconfig": "^3.1.3",
+              "micromatch": "^4.0.8",
+              "normalize-path": "^3.0.0",
+              "object-hash": "^3.0.0",
+              "picocolors": "^1.1.1",
+              "postcss": "^8.4.47",
+              "postcss-import": "^15.1.0",
+              "postcss-js": "^4.0.1",
+              "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0",
+              "postcss-nested": "^6.2.0",
+              "postcss-selector-parser": "^6.1.2",
+              "resolve": "^1.22.8",
+              "sucrase": "^3.35.0"
+            },
+            "bin": {
+              "tailwind": "lib/cli.js",
+              "tailwindcss": "lib/cli.js"
+            },
+            "engines": {
+              "node": ">=14.0.0"
+            }
+          }
+        },
+        {
+          "name": "chokidar",
+          "version": "3.6.0",
+          "dependencyPath": "node_modules/chokidar",
+          "dev": true,
+          "auditFingerprint": {
+            "name": "chokidar",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              "braces"
+            ],
+            "effects": [
+              "tailwindcss"
+            ],
+            "range": "2.0.0 - 3.6.0",
+            "nodes": [
+              "node_modules/chokidar"
+            ],
+            "fixAvailable": {
+              "name": "tailwindcss",
+              "version": "4.3.3",
+              "isSemVerMajor": true
+            }
+          },
+          "lockFingerprint": {
+            "version": "3.6.0",
+            "resolved": "https://registry.npmjs.org/chokidar/-/chokidar-3.6.0.tgz",
+            "integrity": "sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==",
+            "dev": true,
+            "license": "MIT",
+            "dependencies": {
+              "anymatch": "~3.1.2",
+              "braces": "~3.0.2",
+              "glob-parent": "~5.1.2",
+              "is-binary-path": "~2.1.0",
+              "is-glob": "~4.0.1",
+              "normalize-path": "~3.0.0",
+              "readdirp": "~3.6.0"
+            },
+            "engines": {
+              "node": ">= 8.10.0"
+            },
+            "funding": {
+              "url": "https://paulmillr.com/funding/"
+            },
+            "optionalDependencies": {
+              "fsevents": "~2.3.2"
+            }
+          }
+        },
+        {
+          "name": "fast-glob",
+          "version": "3.3.3",
+          "dependencyPath": "node_modules/fast-glob",
+          "dev": true,
+          "auditFingerprint": {
+            "name": "fast-glob",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              "micromatch"
+            ],
+            "effects": [],
+            "range": "*",
+            "nodes": [
+              "node_modules/fast-glob"
+            ],
+            "fixAvailable": true
+          },
+          "lockFingerprint": {
+            "version": "3.3.3",
+            "resolved": "https://registry.npmjs.org/fast-glob/-/fast-glob-3.3.3.tgz",
+            "integrity": "sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==",
+            "dev": true,
+            "license": "MIT",
+            "dependencies": {
+              "@nodelib/fs.stat": "^2.0.2",
+              "@nodelib/fs.walk": "^1.2.3",
+              "glob-parent": "^5.1.2",
+              "merge2": "^1.3.0",
+              "micromatch": "^4.0.8"
+            },
+            "engines": {
+              "node": ">=8.6.0"
+            }
+          }
+        },
+        {
+          "name": "micromatch",
+          "version": "4.0.8",
+          "dependencyPath": "node_modules/micromatch",
+          "dev": true,
+          "auditFingerprint": {
+            "name": "micromatch",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              "braces"
+            ],
+            "effects": [
+              "fast-glob",
+              "tailwindcss"
+            ],
+            "range": ">=0.2.0",
+            "nodes": [
+              "node_modules/micromatch"
+            ],
+            "fixAvailable": {
+              "name": "tailwindcss",
+              "version": "4.3.3",
+              "isSemVerMajor": true
+            }
+          },
+          "lockFingerprint": {
+            "version": "4.0.8",
+            "resolved": "https://registry.npmjs.org/micromatch/-/micromatch-4.0.8.tgz",
+            "integrity": "sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==",
+            "dev": true,
+            "license": "MIT",
+            "dependencies": {
+              "braces": "^3.0.3",
+              "picomatch": "^2.3.1"
+            },
+            "engines": {
+              "node": ">=8.6"
+            }
+          }
+        },
+        {
+          "name": "braces",
+          "version": "3.0.3",
+          "dependencyPath": "node_modules/braces",
+          "dev": true,
+          "auditFingerprint": {
+            "name": "braces",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              {
+                "source": 1240992,
+                "name": "braces",
+                "dependency": "braces",
+                "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+                "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+                "severity": "high",
+                "cwe": [
+                  "CWE-674"
+                ],
+                "cvss": {
+                  "score": 7.5,
+                  "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+                },
+                "range": "<=3.0.3"
+              }
+            ],
+            "effects": [
+              "chokidar",
+              "micromatch"
+            ],
+            "range": "*",
+            "nodes": [
+              "node_modules/braces"
+            ],
+            "fixAvailable": {
+              "name": "tailwindcss",
+              "version": "4.3.3",
+              "isSemVerMajor": true
+            }
+          },
+          "lockFingerprint": {
+            "version": "3.0.3",
+            "resolved": "https://registry.npmjs.org/braces/-/braces-3.0.3.tgz",
+            "integrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+            "dev": true,
+            "license": "MIT",
+            "dependencies": {
+              "fill-range": "^7.1.1"
+            },
+            "engines": {
+              "node": ">=8"
+            }
+          }
+        }
+      ],
+      "incomingEdges": [
+        {
+          "from": "",
+          "kind": "devDependencies",
+          "name": "tailwindcss",
+          "range": "^3.4.17",
+          "to": "node_modules/tailwindcss"
+        },
+        {
+          "from": "node_modules/chokidar",
+          "kind": "dependencies",
+          "name": "braces",
+          "range": "~3.0.2",
+          "to": "node_modules/braces"
+        },
+        {
+          "from": "node_modules/fast-glob",
+          "kind": "dependencies",
+          "name": "micromatch",
+          "range": "^4.0.8",
+          "to": "node_modules/micromatch"
+        },
+        {
+          "from": "node_modules/micromatch",
+          "kind": "dependencies",
+          "name": "braces",
+          "range": "^3.0.3",
+          "to": "node_modules/braces"
+        },
+        {
+          "from": "node_modules/tailwindcss",
+          "kind": "dependencies",
+          "name": "chokidar",
+          "range": "^3.6.0",
+          "to": "node_modules/chokidar"
+        },
+        {
+          "from": "node_modules/tailwindcss",
+          "kind": "dependencies",
+          "name": "fast-glob",
+          "range": "^3.3.2",
+          "to": "node_modules/fast-glob"
+        },
+        {
+          "from": "node_modules/tailwindcss",
+          "kind": "dependencies",
+          "name": "micromatch",
+          "range": "^4.0.8",
+          "to": "node_modules/micromatch"
+        }
+      ],
+      "ancillaryAdvisories": [],
+      "invalidationConditions": [
+        "User-controlled or remote glob/brace patterns, untrusted build patterns or runtime Tailwind compilation.",
+        "Build pipeline, package/version/path or external preview trust policy changes.",
+        "Advisory content, severity or exploit evidence changes; compatible patched upstream becomes available.",
+        "Review date expires."
+      ],
+      "cveFingerprint": [
+        {
+          "id": "GHSA-vfj7-8cjw-p6xm",
+          "aliases": [
+            "CVE-2026-93687"
+          ],
+          "summary": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+          "severity": "high",
+          "cvssScore": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ]
+    }
+  ],
+  "reviewedContext": {
+    "src": "8B2F3B0E029FF259FCC79C0ABC07ADBDD3298E9B44E67DF43A102DE8D494B505",
+    "functions/src": "E740C88EC7F130C9C6515B760D7B8B88C67FE1C2239A369FC80DB7065F636947",
+    "package.json": "C812AA32761D2BEC77871A3476597E00583C2E376931CDF0C669588422F69D5C",
+    "vercel.json": "D8511B013B70901C7A0EC4EED0B9D8A2943A257233B7F0C53674084ECF223BDC",
+    "firebase.json": "5DD5491064E9DDC195D0D359B0D30CD004DE51384FE9699CC7D4C77D82276C29",
+    "vite.config.js": "D6844AD9DD4A9375B0325C7B04A797B589255A4D42475187386E78DCB2CCBFE7",
+    "tailwind.config.js": "7DE9868C115E3C07E69AEF6FA5B4BD4F0F636563BCD572B156031A449B91C47B",
+    "postcss.config.js": "E32657BAF631D7C5F4DC67B4B2EE0EC8E7D5B3C41860E09CDDCE7C0377CD80BC",
+    "functions/package.json": "8A748482EEF0116DDE6C831180CFFD2CD30BB03A70148FF33CAA249C20364A49",
+    "functions/package-lock.json": "507CB931FD1295D3B088AE4A36C915A43FB8DE96EE9E1013B64B2672868DD4F0",
+    "scripts/package-public-demo.mjs": "333360E772E948494023234F116D0A9FACD627DE02B98CF801913D9C33035651",
+    "scripts/build-public-demo.mjs": "ED541B24C6541CCB0E2A5C320D1FA7666C03F94EF291C3439DFA1C242E232F1C",
+    "scripts/demo-package-rules.mjs": "9E84E893B58BF36E43C3B00D536E7670AE9030B4A73FED585E96CE9C511163A9",
+    "scripts/demo-firestore-rules.mjs": "8434E4388EA9802E226AD423697CA068A905ABE28E3826A9DFAA68CC481E6D9B",
+    "rules": "B22DE5AF88576ECE0BBF1926D49DFE97EE6DA821D4282AC068AC778E28B7DECF",
+    "firestore.rules": "6AF8816F457F2B0C6F12A015221C1E0C7DD8CA963ACA3191C9A89A08080A983D",
+    "storage.rules": "140D4B69F0865D42F07FAAA6DFB1FD9B362D8FA0512D4C2206F9412E7D32E4BB",
+    "firestore.demo.rules": "33941DB2170C3BE408D586955AA985B65D54B383E64D9812ADB440FD5A101B49",
+    "storage.demo.rules": "BD95635BC59DC8A67F2DA75B6FAFB4449CF7289F82189ED185F07D18EE562C40",
+    ".github/workflows": "A230393A8E475BA5D4362547A26350DE6EBA55ADD5D4C6EC6037847EA47CF95B",
+    "Dockerfile": "A85598C91B8E2D3FA2118FA196260216BFE3295A7204906E1D0B3D41CCC67AA4",
+    ".dockerignore": "C4CF17A81237761EE45040E2C2F59AFE7A68ACF8D1BECB49210DA5E3D3E5706D",
+    ".vercelignore": "6DA8F1BDEB5BD71B269780ECD160949245DA07DC44D2BE79D7CD5DEE38821CF2",
+    "index.html": "A856AFB11AB42B054DCC0216540ED8E92F69B9E44F2B0EC808401497CC352E3C"
+  }
+}

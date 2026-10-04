@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {guardDemoRoute,demoWorkspaceUrlReady} from '../qa/public-demo/browser-route-guard.mjs';
+let failures=0;const page={isClosed:()=>false},closing=new WeakSet();
+const route={request:()=>({frame:()=>({page:()=>page})})},failed=()=>failures++;
+await guardDemoRoute(route,async()=>{throw Error('provider headers must not escape');},closing,failed);
+assert.equal(failures,1,'live proxy failure remains fatal');
+closing.add(page);await guardDemoRoute(route,async()=>{throw Error('intentional page closure');},closing,failed);
+assert.equal(failures,1,'only explicitly closing test page is ignored');
+await guardDemoRoute(route,async()=>{},closing,failed);assert.equal(failures,1);
+assert.equal(demoWorkspaceUrlReady(new URL('https://demo-fuel.shiftoryx.gr/'),'demo-fuel'),false,'cleared fragment does not complete handoff');
+assert.equal(demoWorkspaceUrlReady(new URL('https://demo-fuel.shiftoryx.gr/app'),'demo-fuel'),true);
+assert.equal(demoWorkspaceUrlReady(new URL('https://demo-fuel.shiftoryx.gr/app#authTicket=fixture'),'demo-fuel'),false);
+assert.equal(demoWorkspaceUrlReady(new URL('https://demo-cafe.shiftoryx.gr/app'),'demo-fuel'),false);
+console.log('DEMO_ROUTE_GUARD_PASS checks=7');

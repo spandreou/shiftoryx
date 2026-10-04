@@ -32,6 +32,7 @@ import { formatDateGreek, getIsoDate, getMonday, getWeekDays, isValidTimeLabel, 
 import { getCurrentTenantHostContext } from '../utils/tenantHostContext';
 import { mergeSchedulerConfigSpecialDays, validateSchedulerConfig } from '../scheduler-engine';
 import { buildV3EmployeePayload } from '../services/schedulerV3Service.ts';
+import { publicDemoEnabled } from '../demo/config';
 
 const isFirebaseConfigured = authRepository.isPersistenceConfigured();
 const firebaseConfigErrorMessage = authRepository.getPersistenceErrorMessage?.() || '';
@@ -1178,7 +1179,10 @@ export const useSchedulerStore = create((set, get) => ({
         after: { ...payload, employeeName, id: created.id },
       });
       set((state) => ({
-        absences: sortAbsencesByDate([...state.absences, { ...created, ...payload, employeeName }]),
+        // The live subscription may deliver this ID while the audit write awaits.
+        absences: state.absences.some((absence) => absence.id === created.id)
+          ? state.absences
+          : sortAbsencesByDate([...state.absences, { ...created, ...payload, employeeName }]),
       }));
       set({
         warningMessage: existingImpact
@@ -1530,12 +1534,14 @@ export const useSchedulerStore = create((set, get) => ({
       const currentEmployee = get().employees.find((employee) => employee.id === id) || null;
       const payload = {
         fullName: fullName.trim(),
-        role: role?.trim() || '',
         color: color || '#1D4ED8',
-        afm: afm?.trim() || '',
-        phone: phone?.trim() || '',
-        email: email?.trim() || '',
-        hireDate: hireDate || '',
+        ...(publicDemoEnabled ? {} : {
+          role: role?.trim() || '',
+          afm: afm?.trim() || '',
+          phone: phone?.trim() || '',
+          email: email?.trim() || '',
+          hireDate: hireDate || '',
+        }),
       };
       await updateEmployee(id, payload, getTenantArgs());
       await recordAuditLog(get, {
@@ -1626,7 +1632,9 @@ export const useSchedulerStore = create((set, get) => ({
     if (!employeeId) return false;
     try {
       const currentEmployee = get().employees.find((employee) => employee.id === employeeId) || null;
-      const removedShifts = await removeShiftsByEmployee(employeeId, getTenantArgs());
+      // V3 demo shifts belong to versioned drafts; a legacy collection delete
+      // cannot safely cascade them. The next draft save detects stale roster.
+      const removedShifts = publicDemoEnabled ? [] : await removeShiftsByEmployee(employeeId, getTenantArgs());
       await removeEmployee(employeeId, getTenantArgs());
       await recordAuditLog(get, {
         action: 'employee.delete',

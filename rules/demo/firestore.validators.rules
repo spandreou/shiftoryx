@@ -1,0 +1,543 @@
+    function isIsoDate(value) {
+      return value is string && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isTime(value) {
+      return value is string && value.matches('^\\d{2}:\\d{2}$');
+    }
+
+    function isOptionalString(field) {
+      return !(field in request.resource.data) || request.resource.data[field] is string;
+    }
+
+    function isOptionalBool(field) {
+      return !(field in request.resource.data) || request.resource.data[field] is bool;
+    }
+
+    function isOptionalIntOrNull(field) {
+      return !(field in request.resource.data) ||
+        request.resource.data[field] == null ||
+        request.resource.data[field] is int;
+    }
+
+    function onlyChanged(allowedFields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+    }
+
+    function employeeFields() {
+      return [
+        'fullName', 'role', 'color', 'afm', 'phone', 'email', 'hireDate', 'isActive', 'schedulerV3',
+        'scheduleRole', 'roleType', 'fixedDayOff', 'fixedDaysOff', 'defaultShiftPreference',
+        'participatesInRotation', 'participatesInSundayRotation', 'weeklyFixedShiftSideRotation',
+        'fixedStartTime', 'fixedEndTime', 'staticStartTime', 'staticEndTime',
+        'extraMode', 'activeFrom', 'activeTo', 'canCoverLeaves', 'canWorkMorning',
+        'canWorkIntermediate', 'canWorkAfternoon', 'canWorkSunday', 'createdAt', 'updatedAt'
+      ];
+    }
+
+    function publicEmployeeFields() {
+      return [
+        'fullName', 'role', 'color', 'isActive',
+        'scheduleRole', 'roleType', 'fixedDayOff', 'fixedDaysOff', 'defaultShiftPreference',
+        'participatesInRotation', 'participatesInSundayRotation', 'weeklyFixedShiftSideRotation',
+        'fixedStartTime', 'fixedEndTime', 'staticStartTime', 'staticEndTime',
+        'extraMode', 'activeFrom', 'activeTo', 'canCoverLeaves', 'canWorkMorning',
+        'canWorkIntermediate', 'canWorkAfternoon', 'canWorkSunday', 'createdAt', 'updatedAt'
+      ];
+    }
+
+    function privateEmployeeFields() {
+      return [
+        'afm', 'phone', 'email', 'address', 'hireDate', 'personalNotes',
+        'internalComments', 'payrollId', 'createdAt', 'updatedAt'
+      ];
+    }
+
+    function validEmployee() {
+      let d = request.resource.data;
+      let fixedDayOff = d.get('fixedDayOff', null);
+      return request.resource.data.keys().hasAll(['fullName']) &&
+        request.resource.data.keys().hasOnly(employeeFields()) &&
+        request.resource.data.fullName is string &&
+        request.resource.data.fullName.size() > 0 && request.resource.data.fullName.size() <= 200 &&
+        (!('afm' in request.resource.data) || request.resource.data.afm == '') &&
+        (!('phone' in request.resource.data) || request.resource.data.phone == '') &&
+        (!('email' in request.resource.data) || request.resource.data.email == '') &&
+        d.get('role', '') is string &&
+        d.get('color', '') is string &&
+        d.get('afm', '') is string &&
+        d.get('phone', '') is string &&
+        d.get('email', '') is string &&
+        d.get('hireDate', '') is string &&
+        d.get('scheduleRole', '') is string &&
+        d.get('roleType', '') is string &&
+        d.get('defaultShiftPreference', '') is string &&
+        d.get('extraMode', '') is string &&
+        d.get('activeFrom', '') is string &&
+        d.get('activeTo', '') is string &&
+        d.get('isActive', false) is bool &&
+        d.get('participatesInRotation', false) is bool &&
+        d.get('participatesInSundayRotation', false) is bool &&
+        d.get('weeklyFixedShiftSideRotation', false) is bool &&
+        d.get('canCoverLeaves', false) is bool &&
+        d.get('canWorkMorning', false) is bool &&
+        d.get('canWorkIntermediate', false) is bool &&
+        d.get('canWorkAfternoon', false) is bool &&
+        d.get('canWorkSunday', false) is bool &&
+        (fixedDayOff == null || fixedDayOff is int) &&
+        validSchedulerProfileWrite();
+    }
+
+    function safeV3Id(value) {
+      return value is string && value.size() > 0 && value.size() <= 100 && value.matches('^[a-zA-Z0-9_-]+$');
+    }
+    function v3Date(value) {
+      // Calendar-valid ISO date, including Gregorian leap years (centuries divide by 400).
+      return value is string && (
+        value.matches('^[0-9]{4}-((01|03|05|07|08|10|12)-(0[1-9]|[12][0-9]|3[01])|(04|06|09|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$') ||
+        value.matches('^([0-9]{2}(0[48]|[2468][048]|[13579][26])|([02468][048]|[13579][26])00)-02-29$')
+      );
+    }
+    function validLegacyEmployeeProfileV3(p) {
+      return p is map && p.keys().hasAll(['workMode','fixedDayOff','targetWeeklyHours','standardShiftTemplateId','rotateStandardShiftWeekly','rotationAlternateShiftTemplateId','rotationAnchorWeekStart']) && p.keys().hasOnly(['workMode','fixedDayOff','targetWeeklyHours','standardShiftTemplateId','rotateStandardShiftWeekly','rotationAlternateShiftTemplateId','rotationAnchorWeekStart']) &&
+        p.workMode in ['NORMAL','SUBSTITUTE_ONLY'] && (p.fixedDayOff == null || (p.fixedDayOff is int && p.fixedDayOff >= 0 && p.fixedDayOff <= 6)) &&
+        (p.targetWeeklyHours == null || (p.targetWeeklyHours is number && p.targetWeeklyHours >= 0 && p.targetWeeklyHours <= 168)) && p.rotateStandardShiftWeekly is bool &&
+        (p.standardShiftTemplateId == null || safeV3Id(p.standardShiftTemplateId)) &&
+        (p.rotationAlternateShiftTemplateId == null || safeV3Id(p.rotationAlternateShiftTemplateId)) &&
+        (p.rotationAnchorWeekStart == null || v3Date(p.rotationAnchorWeekStart));
+    }
+    function v3QuarterTime(value) {
+      return value is string && value.matches('^([01][0-9]|2[0-3]):(00|15|30|45)$');
+    }
+    function validProfileTimeRangeV3(value) {
+      return value is map && value.keys().hasAll(['startTime','endTime']) && value.keys().hasOnly(['startTime','endTime']) &&
+        v3QuarterTime(value.startTime) && v3QuarterTime(value.endTime) && value.startTime != value.endTime;
+    }
+    function v3TimeMinutes(value) {
+      return int(value[0:2]) * 60 + int(value[3:5]);
+    }
+    function validProfileRotationV3(a, b) {
+      let startA = v3TimeMinutes(a.startTime);
+      let startB = v3TimeMinutes(b.startTime);
+      let durationA = (v3TimeMinutes(a.endTime) - startA + 1440) % 1440;
+      let durationB = (v3TimeMinutes(b.endTime) - startB + 1440) % 1440;
+      let offset = (startB - startA + 1440) % 1440;
+      return durationA == durationB && offset >= durationA && offset + durationB <= 1440;
+    }
+    function v3Monday(value) {
+      return v3Date(value) && timestamp.date(int(value[0:4]),int(value[5:7]),int(value[8:10])).dayOfWeek() == timestamp.date(2026,1,5).dayOfWeek();
+    }
+    function validEmployeeProfileV3(p) {
+      let fields = ['profileVersion','workMode','fixedDayOff','targetWeeklyHours','standardShift','rotateStandardShiftWeekly','rotationAlternateShift','rotationAnchorWeekStart'];
+      return p is map && p.keys().hasAll(fields) && p.keys().hasOnly(fields) && p.profileVersion == 2 &&
+        p.workMode in ['NORMAL','SUBSTITUTE_ONLY'] &&
+        (p.fixedDayOff == null || (p.fixedDayOff is int && p.fixedDayOff >= 0 && p.fixedDayOff <= 6)) &&
+        (p.targetWeeklyHours == null || (p.targetWeeklyHours is number && p.targetWeeklyHours >= 0 && p.targetWeeklyHours <= 168)) &&
+        (p.standardShift == null || validProfileTimeRangeV3(p.standardShift)) &&
+        (p.rotationAlternateShift == null || validProfileTimeRangeV3(p.rotationAlternateShift)) &&
+        (p.rotationAnchorWeekStart == null || v3Monday(p.rotationAnchorWeekStart)) && p.rotateStandardShiftWeekly is bool &&
+        (!p.rotateStandardShiftWeekly || (p.standardShift != null && p.rotationAlternateShift != null && p.rotationAnchorWeekStart != null && validProfileRotationV3(p.standardShift,p.rotationAlternateShift)));
+    }
+    // Old profiles remain readable and unchanged during unrelated legacy employee edits.
+    // Creating/replacing a profile writes only the canonical direct-time format.
+    function validSchedulerProfileWrite() {
+      return (!('schedulerV3' in request.resource.data) && (resource == null || !('schedulerV3' in resource.data))) ||
+        ('schedulerV3' in request.resource.data && validPresentSchedulerProfile(request.resource.data.schedulerV3));
+    }
+    function validPresentSchedulerProfile(p) {
+      // The canonical and legacy field allowlists are disjoint. Select exactly one
+      // validator so a rejected canonical write cannot exhaust the evaluator in
+      // a legacy fallback which can never accept a profileVersion field.
+      return p is map && (p.keys().hasAny(['profileVersion']) ? validEmployeeProfileV3(p) :
+        (resource != null && 'schedulerV3' in resource.data && p == resource.data.schedulerV3 && validLegacyEmployeeProfileV3(p)));
+    }
+    function validScheduleDraftV3(tenantId, draftId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['id','tenantId','schemaVersion','periodType','periodStart','periodEnd','config','employees','absences','options','updatedBy','revision','shiftDocumentIds']) &&
+        d.keys().hasOnly(['id','tenantId','schemaVersion','periodType','periodStart','periodEnd','config','employees','absences','options','updatedBy','revision','shiftDocumentIds','sourcePublicationId']) &&
+        d.tenantId == tenantId && d.schemaVersion == 3 && d.id == draftId && safeV3Id(d.id) && d.periodType in ['WEEK','MONTH'] &&
+        v3Date(d.periodStart) && v3Date(d.periodEnd) && d.periodStart <= d.periodEnd && d.revision is int && d.revision >= 0 &&
+        d.updatedBy == request.auth.uid && d.config is map && d.config.tenantId == tenantId && d.config.schemaVersion == 3 &&
+        d.employees is list && d.absences is list && d.options is map && d.shiftDocumentIds is list && d.shiftDocumentIds.size() <= 450 &&
+        (!('sourcePublicationId' in d) || safeV3Id(d.sourcePublicationId));
+    }
+    function v3Time(value) {
+      return value is string && value.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+    function validDraftShiftV3() {
+      let d = request.resource.data;
+      let fields = ['id','date','employeeId','employeeName','shiftTemplateId','startTime','endTime','durationHours','crossMidnight','source','isManualOverride','schedulerSchemaVersion','draftId','type'];
+      return d.keys().hasAll(fields) && d.keys().hasOnly(fields) &&
+        d.schedulerSchemaVersion == 3 && safeV3Id(d.id) && safeV3Id(d.draftId) && safeV3Id(d.employeeId) &&
+        d.employeeName is string && d.employeeName.size() > 0 && d.employeeName.size() <= 200 &&
+        (d.shiftTemplateId == null || safeV3Id(d.shiftTemplateId)) &&
+        v3Date(d.date) && v3Time(d.startTime) && v3Time(d.endTime) &&
+        d.crossMidnight is bool && d.isManualOverride is bool &&
+        d.durationHours is number && d.durationHours > 0 && d.durationHours <= 24 && d.source in ['AUTO','MANUAL'] && d.type == 'work';
+    }
+
+    function validPublicEmployee() {
+      return request.resource.data.keys().hasAll(['fullName']) &&
+        request.resource.data.keys().hasOnly(publicEmployeeFields()) &&
+        request.resource.data.fullName is string &&
+        request.resource.data.fullName.size() > 0 &&
+        isOptionalString('role') &&
+        isOptionalString('color') &&
+        isOptionalString('scheduleRole') &&
+        isOptionalString('roleType') &&
+        isOptionalString('defaultShiftPreference') &&
+        isOptionalString('extraMode') &&
+        isOptionalString('activeFrom') &&
+        isOptionalString('activeTo') &&
+        isOptionalBool('isActive') &&
+        isOptionalBool('participatesInRotation') &&
+        isOptionalBool('participatesInSundayRotation') &&
+        isOptionalBool('weeklyFixedShiftSideRotation') &&
+        isOptionalBool('canCoverLeaves') &&
+        isOptionalBool('canWorkMorning') &&
+        isOptionalBool('canWorkIntermediate') &&
+        isOptionalBool('canWorkAfternoon') &&
+        isOptionalBool('canWorkSunday') &&
+        isOptionalIntOrNull('fixedDayOff');
+    }
+
+    function validPrivateEmployee() {
+      return request.resource.data.keys().hasOnly(privateEmployeeFields()) &&
+        isOptionalString('afm') &&
+        isOptionalString('phone') &&
+        isOptionalString('email') &&
+        isOptionalString('address') &&
+        isOptionalString('hireDate') &&
+        isOptionalString('personalNotes') &&
+        isOptionalString('internalComments') &&
+        isOptionalString('payrollId');
+    }
+
+    function shiftFields() {
+      return [
+        'employeeId', 'date', 'startTime', 'endTime', 'type', 'label', 'shiftType',
+        'customLabel', 'notes', 'duration', 'isManualOverride', 'isHoliday',
+        'isSpecialDay', 'specialDayLabel', 'generationRunId', 'shiftTemplateId',
+        'demandSlotId', 'crossMidnight', 'durationHours', 'createdAt', 'updatedAt'
+      ];
+    }
+
+    function validShift() {
+      return request.resource.data.keys().hasAll(['employeeId', 'date', 'startTime', 'endTime']) &&
+        request.resource.data.keys().hasOnly(shiftFields()) &&
+        request.resource.data.employeeId is string &&
+        isIsoDate(request.resource.data.date) &&
+        isTime(request.resource.data.startTime) &&
+        isTime(request.resource.data.endTime) &&
+        isOptionalString('type') &&
+        isOptionalString('label') &&
+        isOptionalString('shiftType') &&
+        isOptionalString('customLabel') &&
+        isOptionalString('notes') &&
+        isOptionalString('generationRunId') &&
+        isOptionalString('shiftTemplateId') &&
+        isOptionalString('demandSlotId') &&
+        isOptionalBool('crossMidnight') &&
+        (!('durationHours' in request.resource.data) || request.resource.data.durationHours is number) &&
+        isOptionalBool('isManualOverride') &&
+        isOptionalBool('isHoliday') &&
+        isOptionalBool('isSpecialDay') &&
+        isOptionalString('specialDayLabel');
+    }
+
+    function absenceFields() {
+      return [
+        'employeeId', 'employeeName', 'type', 'startDate', 'endDate', 'scope', 'replacementMode',
+        'manualReplacementEmployeeId', 'note', 'status', 'createdBy', 'updatedBy',
+        'createdAt', 'updatedAt'
+      ];
+    }
+
+    function validAbsence() {
+      return request.resource.data.keys().hasAll([
+        'employeeId', 'type', 'startDate', 'endDate', 'replacementMode'
+      ]) &&
+        request.resource.data.keys().hasOnly(absenceFields()) &&
+        request.resource.data.employeeId is string &&
+        request.resource.data.employeeId.size() > 0 &&
+        request.resource.data.type in ['LEAVE', 'SICK', 'OTHER'] &&
+        isIsoDate(request.resource.data.startDate) &&
+        isIsoDate(request.resource.data.endDate) &&
+        request.resource.data.startDate <= request.resource.data.endDate &&
+        (!('scope' in request.resource.data) || request.resource.data.scope in [
+          'FULL_DAY', 'MORNING_ONLY', 'INTERMEDIATE_ONLY', 'AFTERNOON_ONLY', 'SUNDAY_12H_ONLY'
+        ]) &&
+        request.resource.data.replacementMode in ['AUTO', 'MANUAL', 'NO_REPLACEMENT'] &&
+        (
+          request.resource.data.replacementMode != 'MANUAL' ||
+          (
+            'manualReplacementEmployeeId' in request.resource.data &&
+            request.resource.data.manualReplacementEmployeeId is string &&
+            request.resource.data.manualReplacementEmployeeId.size() > 0
+          )
+        ) &&
+        (!('manualReplacementEmployeeId' in request.resource.data) || request.resource.data.manualReplacementEmployeeId is string) &&
+        (!('status' in request.resource.data) || request.resource.data.status in ['ACTIVE', 'CANCELLED']) &&
+        isOptionalString('employeeName') &&
+        isOptionalString('note') &&
+        isOptionalString('createdBy') &&
+        isOptionalString('updatedBy');
+    }
+
+    function publicAbsenceFields() {
+      return ['id', 'employeeName', 'typeLabel', 'startDate', 'endDate', 'totalDays', 'status'];
+    }
+
+    function validPublicAbsence() {
+      return request.resource.data.keys().hasAll([
+        'id', 'employeeName', 'typeLabel', 'startDate', 'endDate', 'totalDays', 'status'
+      ]) &&
+        request.resource.data.keys().hasOnly(publicAbsenceFields()) &&
+        request.resource.data.id is string &&
+        request.resource.data.employeeName is string &&
+        request.resource.data.typeLabel is string &&
+        isIsoDate(request.resource.data.startDate) &&
+        isIsoDate(request.resource.data.endDate) &&
+        request.resource.data.startDate <= request.resource.data.endDate &&
+        request.resource.data.totalDays is int &&
+        request.resource.data.totalDays >= 1 &&
+        request.resource.data.status in ['ACTIVE', 'CANCELLED'];
+    }
+
+    function validPublicAbsencePatch() {
+      return request.resource.data.keys().hasOnly(publicAbsenceFields()) &&
+        (!('id' in request.resource.data) || request.resource.data.id is string) &&
+        (!('employeeName' in request.resource.data) || request.resource.data.employeeName is string) &&
+        (!('typeLabel' in request.resource.data) || request.resource.data.typeLabel is string) &&
+        (!('startDate' in request.resource.data) || isIsoDate(request.resource.data.startDate)) &&
+        (!('endDate' in request.resource.data) || isIsoDate(request.resource.data.endDate)) &&
+        (!('totalDays' in request.resource.data) || (request.resource.data.totalDays is int && request.resource.data.totalDays >= 1)) &&
+        (!('status' in request.resource.data) || request.resource.data.status in ['ACTIVE', 'CANCELLED']);
+    }
+
+    function settingsFields() {
+      return ['generatorRules', 'schedulerConfigV2', 'schedulerConfigV3', 'schedulerSchemaVersion', 'specialDaysByDate', 'createdAt', 'updatedAt'];
+    }
+
+    function validSchedulerSettings() {
+      return request.resource.data.keys().hasOnly(settingsFields()) &&
+        (!('schedulerSchemaVersion' in request.resource.data) || request.resource.data.schedulerSchemaVersion in [2,3]) &&
+        (!('schedulerConfigV3' in request.resource.data) || (request.resource.data.schedulerConfigV3 is map && request.resource.data.schedulerConfigV3.schemaVersion == 3)) &&
+        (!( 'generatorRules' in request.resource.data) || request.resource.data.generatorRules is map) &&
+        (!( 'schedulerConfigV2' in request.resource.data) || request.resource.data.schedulerConfigV2 is map) &&
+        (!( 'specialDaysByDate' in request.resource.data) || request.resource.data.specialDaysByDate is map);
+    }
+
+    function validWeekLock() {
+      return request.resource.data.keys().hasAll(['weekStart', 'weekDays']) &&
+        request.resource.data.keys().hasOnly(['weekStart', 'weekDays', 'finalizedBy', 'finalizedAt', 'createdAt', 'updatedAt']) &&
+        isIsoDate(request.resource.data.weekStart) &&
+        request.resource.data.weekDays is list &&
+        isOptionalString('finalizedBy');
+    }
+
+    function validWeekHistory() {
+      return request.resource.data.keys().hasAll(['weekId', 'weekStart', 'weekEnd', 'shifts']) &&
+        request.resource.data.keys().hasOnly([
+          'weekId', 'weekStart', 'weekEnd', 'source', 'shifts', 'shiftCount',
+          'createdBy', 'savedBy', 'savedAt', 'metadata', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.weekId is string &&
+        isIsoDate(request.resource.data.weekStart) &&
+        isIsoDate(request.resource.data.weekEnd) &&
+        request.resource.data.shifts is list &&
+        isOptionalString('source') &&
+        isOptionalString('createdBy') &&
+        isOptionalString('savedBy');
+    }
+
+    function validPublishedSchedule(scheduleId) {
+      return request.resource.data.keys().hasAll(['weekStart', 'weekEnd', 'shiftCount', 'shifts']) &&
+        request.resource.data.keys().hasOnly([
+          'weekStart', 'weekEnd', 'shiftCount', 'shifts', 'publishedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.weekStart == scheduleId &&
+        isIsoDate(request.resource.data.weekStart) &&
+        isIsoDate(request.resource.data.weekEnd) &&
+        request.resource.data.shiftCount is number &&
+        request.resource.data.shifts is list;
+    }
+
+    function validTenantPublicSchedule(tenantId, scheduleId) {
+      return request.resource.data.keys().hasAll(['tenantId', 'weekStart', 'weekEnd', 'shiftCount', 'shifts']) &&
+        request.resource.data.keys().hasOnly([
+          'tenantId', 'weekStart', 'weekEnd', 'shiftCount', 'shifts', 'publishedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.tenantId == tenantId &&
+        request.resource.data.weekStart == scheduleId &&
+        isIsoDate(request.resource.data.weekStart) &&
+        isIsoDate(request.resource.data.weekEnd) &&
+        request.resource.data.shiftCount is number &&
+        request.resource.data.shiftCount >= 0 &&
+        request.resource.data.shifts is list;
+    }
+
+    function validTenantPublicMonth(tenantId, yearMonth) {
+      return request.resource.data.keys().hasAll(['tenantId', 'yearMonth', 'monthStart', 'monthEnd', 'shiftCount', 'shifts']) &&
+        request.resource.data.keys().hasOnly([
+          'tenantId', 'yearMonth', 'monthStart', 'monthEnd', 'monthDays',
+          'weekStarts', 'shiftCount', 'shifts', 'publishedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.tenantId == tenantId &&
+        request.resource.data.yearMonth == yearMonth &&
+        request.resource.data.yearMonth.matches('^\\d{4}-\\d{2}$') &&
+        isIsoDate(request.resource.data.monthStart) &&
+        isIsoDate(request.resource.data.monthEnd) &&
+        request.resource.data.shiftCount is number &&
+        request.resource.data.shiftCount >= 0 &&
+        request.resource.data.shifts is list &&
+        (!('monthDays' in request.resource.data) || request.resource.data.monthDays is list) &&
+        (!('weekStarts' in request.resource.data) || request.resource.data.weekStarts is list);
+    }
+
+    function validTenantPublicEmployee(tenantId) {
+      return request.resource.data.keys().hasAll(['tenantId', 'fullName']) &&
+        request.resource.data.keys().hasOnly(['tenantId', 'fullName', 'role', 'color', 'isActive', 'updatedAt']) &&
+        request.resource.data.tenantId == tenantId &&
+        request.resource.data.fullName is string &&
+        request.resource.data.fullName.size() > 0 &&
+        isOptionalString('role') &&
+        isOptionalString('color') &&
+        (!('isActive' in request.resource.data) || request.resource.data.isActive is bool);
+    }
+
+    function validTenantPublicAnnouncement(tenantId) {
+      return request.resource.data.keys().hasAll(['tenantId', 'title', 'body']) &&
+        request.resource.data.keys().hasOnly(['tenantId', 'title', 'body', 'createdAt', 'updatedAt']) &&
+        request.resource.data.tenantId == tenantId &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() > 0;
+    }
+
+    function validMonthlyScheduleExport(exportId) {
+      return request.resource.data.keys().hasAll([
+          'tenantId', 'yearMonth', 'fileName', 'storagePath', 'createdBy', 'shiftCount', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'tenantId', 'yearMonth', 'fileName', 'storagePath', 'createdBy', 'shiftCount', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        exportId == request.resource.data.tenantId + '_' + request.resource.data.yearMonth &&
+        request.resource.data.tenantId is string &&
+        request.resource.data.tenantId.matches('^[a-z0-9-]{1,60}$') &&
+        request.resource.data.yearMonth is string &&
+        request.resource.data.yearMonth.matches('^\\d{4}-\\d{2}$') &&
+        request.resource.data.fileName == 'program_month_' + request.resource.data.yearMonth + '.pdf' &&
+        request.resource.data.storagePath ==
+          'tenants/' + request.resource.data.tenantId + '/monthly_schedule_pdfs/' +
+          request.resource.data.yearMonth + '/' + request.resource.data.fileName &&
+        request.resource.data.createdBy is string &&
+        request.resource.data.createdBy.size() <= 160 &&
+        request.resource.data.shiftCount is number &&
+        request.resource.data.shiftCount >= 0 &&
+        request.resource.data.status == 'READY';
+    }
+
+    function validTemplate() {
+      return request.resource.data.keys().hasOnly([
+        'name', 'label', 'weekStart', 'shifts', 'createdBy', 'createdAt', 'updatedAt',
+        'startTime', 'endTime', 'type', 'shiftType', 'customLabel', 'notes', 'color'
+      ]);
+    }
+
+    function validAnnouncement() {
+      return request.resource.data.keys().hasOnly(['title', 'body', 'message', 'createdBy', 'authorEmail', 'createdAt', 'updatedAt']) &&
+        (('title' in request.resource.data && request.resource.data.title is string) ||
+          ('message' in request.resource.data && request.resource.data.message is string) ||
+          ('body' in request.resource.data && request.resource.data.body is string));
+    }
+
+    function validAuditLog() {
+      return request.resource.data.keys().hasAll(['action', 'actor', 'target', 'createdAt']) &&
+        request.resource.data.keys().hasOnly([
+          'action', 'actor', 'target', 'before', 'after', 'metadata',
+          'generationRunId', 'createdAt'
+        ]) &&
+        request.resource.data.action is string &&
+        request.resource.data.action.size() > 0 &&
+        request.resource.data.actor is map &&
+        request.resource.data.target is map &&
+        (!('metadata' in request.resource.data) || request.resource.data.metadata is map) &&
+        isOptionalString('generationRunId');
+    }
+
+    function validAttendanceHistory() {
+      return request.resource.data.keys().hasAll(['employeeId', 'date']) &&
+        request.resource.data.keys().hasOnly([
+          'employeeId', 'employeeName', 'date', 'weekStart', 'startTime', 'endTime',
+          'type', 'label', 'shiftType', 'hours', 'notes', 'finalizedAt',
+          'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.employeeId is string &&
+        isIsoDate(request.resource.data.date);
+    }
+
+    function validUserProfile(uid) {
+      return request.resource.data.keys().hasOnly([
+        'uid', 'email', 'displayName', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+        (!('uid' in request.resource.data) || request.resource.data.uid == uid) &&
+        isOptionalString('email') &&
+        isOptionalString('displayName') &&
+        (!('status' in request.resource.data) || request.resource.data.status in ['ACTIVE', 'DISABLED']);
+    }
+
+    function validTenant() {
+      return request.resource.data.keys().hasAll(['slug']) &&
+        request.resource.data.keys().hasOnly([
+          'slug', 'domain', 'displayName', 'name', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.slug is string &&
+        request.resource.data.slug.matches('^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$') &&
+        isOptionalString('domain') &&
+        isOptionalString('displayName') &&
+        isOptionalString('name') &&
+        (!('status' in request.resource.data) || request.resource.data.status in ['ACTIVE', 'DISABLED']);
+    }
+
+    function validTenantMembership() {
+      return request.resource.data.keys().hasAll(['uid', 'tenantId', 'status', 'role']) &&
+        request.resource.data.keys().hasOnly([
+          'uid', 'tenantId', 'email', 'role', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.uid is string &&
+        request.resource.data.uid.size() > 0 &&
+        request.resource.data.tenantId is string &&
+        request.resource.data.tenantId.matches('^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$') &&
+        request.resource.data.role in ['OWNER', 'ADMIN', 'MANAGER'] &&
+        request.resource.data.status in ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'EXPIRED', 'REVOKED'] &&
+        isOptionalString('email');
+    }
+
+    function validTenantSubscription() {
+      return request.resource.data.keys().hasOnly([
+        'plan', 'status', 'trialEndsAt', 'currentPeriodStart', 'currentPeriodEnd',
+        'createdAt', 'updatedAt'
+      ]) &&
+        isOptionalString('plan') &&
+        (!('status' in request.resource.data) || request.resource.data.status in [
+          'ACTIVE', 'TRIALING', 'PAST_DUE', 'CANCELLED', 'DISABLED'
+        ]);
+    }
+
+    function validTenantTokenRequest() {
+      return request.resource.data.keys().hasAll(['email', 'status']) &&
+        request.resource.data.keys().hasOnly([
+          'email', 'requesterName', 'note', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 0 &&
+        request.resource.data.email.size() <= 254 &&
+        (!('requesterName' in request.resource.data) ||
+          (request.resource.data.requesterName is string && request.resource.data.requesterName.size() <= 120)) &&
+        (!('note' in request.resource.data) ||
+          (request.resource.data.note is string && request.resource.data.note.size() <= 1000)) &&
+        request.resource.data.status in ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+    }
+

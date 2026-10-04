@@ -1,0 +1,11 @@
+import {initializeApp} from 'firebase/app';
+import {getAuth,connectAuthEmulator} from 'firebase/auth';
+import {getFirestore,connectFirestoreEmulator} from 'firebase/firestore';
+import {getStorage,connectStorageEmulator} from 'firebase/storage';
+import {getFunctions,connectFunctionsEmulator} from 'firebase/functions';
+const projectId='demo-shiftoryx-public';
+export const app=initializeApp({projectId,apiKey:'emulator-only',authDomain:projectId+'.firebaseapp.com',storageBucket:projectId+'.appspot.com',appId:'emulator-only'});
+export const auth=getAuth(app),db=getFirestore(app),storage=getStorage(app),functions=getFunctions(app,'us-central1');
+connectAuthEmulator(auth,'http://127.0.0.1:9308',{disableWarnings:true});connectFirestoreEmulator(db,'127.0.0.1',8197);connectStorageEmulator(storage,'127.0.0.1',9408);connectFunctionsEmulator(functions,'127.0.0.1',5111);
+export const analytics=null,isFirebaseConfigured=true,missingFirebaseEnvKeys=[],firebaseConfigErrorMessage='';
+export const appMode='public-demo',isDemoMode=true,adminEmail='',isAdminEmailConfigured=false,isMonthlyPdfArchiveEnabled=false,isAuthBrokerEnabled=true;

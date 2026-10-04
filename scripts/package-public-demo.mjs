@@ -1,0 +1,37 @@
+// Builds an isolated deployment artifact; does not deploy or mutate cloud state.
+import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,cpSync,copyFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {build} from 'vite';
+import baseConfig from '../vite.config.js';
+import {DEMO_PROJECT_ID,DEMO_TENANTS} from '../functions/src/public-demo/policy.ts';
+import {copyDemoRuleFiles} from './demo-package-rules.mjs';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const input=process.argv[2];if(!input)throw new Error('Pass the external demo-only Firebase web config file.');
+const config=JSON.parse(readFileSync(resolve(input),'utf8'));
+if(config.projectId!==DEMO_PROJECT_ID)throw new Error('DEMO_CONFIG_PROJECT_REJECTED');
+if(config.authDomain!==DEMO_PROJECT_ID+'.firebaseapp.com'||config.storageBucket!==DEMO_PROJECT_ID+'.firebasestorage.app')throw new Error('DEMO_CONFIG_RESOURCE_REJECTED');
+for(const key of ['apiKey','appId','messagingSenderId'])if(typeof config[key]!=='string'||!config[key])throw new Error('DEMO_CONFIG_INCOMPLETE');
+if(Object.keys(config).some(key=>/private.?key|client.?secret|password|token/i.test(key)))throw new Error('DEMO_CONFIG_SECRET_REJECTED');
+const output=mkdtempSync(join(process.env.PUBLIC_DEMO_PACKAGE_PARENT||tmpdir(),'shiftoryx-demo-package-'));
+// Ignore all ambient VITE configuration and all .env files, including production.
+for(const key of Object.keys(process.env))if(key.startsWith('VITE_'))delete process.env[key];
+const env={VITE_FIREBASE_API_KEY:config.apiKey,VITE_FIREBASE_AUTH_DOMAIN:config.authDomain,VITE_FIREBASE_PROJECT_ID:config.projectId,VITE_FIREBASE_STORAGE_BUCKET:config.storageBucket,VITE_FIREBASE_MESSAGING_SENDER_ID:config.messagingSenderId,VITE_FIREBASE_APP_ID:config.appId,VITE_PUBLIC_DEMO_ENABLED:'true',VITE_ENABLE_SCHEDULER_V3:'true',VITE_ENABLE_AUTH_BROKER:'true',VITE_ENABLE_TENANT_GATE:'true',VITE_CENTRAL_PORTAL_DOMAIN:'demo.shiftoryx.gr',VITE_PUBLIC_APP_BASE_DOMAIN:'shiftoryx.gr',VITE_APP_MODE:'public-demo'};
+Object.assign(process.env,env);
+process.env.VITE_ENABLE_MONTHLY_PDF_ARCHIVE='false';
+await build({...baseConfig,root,configFile:false,envDir:false,build:{...baseConfig.build,outDir:join(output,'web'),emptyOutDir:false}});
+copyFileSync(join(root,'vercel.json'),join(output,'web/vercel.json'));
+const backend=join(output,'backend');mkdirSync(join(backend,'functions'),{recursive:true});
+cpSync(join(root,'functions/src'),join(backend,'functions/src'),{recursive:true});
+const pkg=JSON.parse(readFileSync(join(root,'functions/package.json'),'utf8'));pkg.main='src/public-demo/entry.js';
+writeFileSync(join(backend,'functions/package.json'),JSON.stringify(pkg,null,2));
+copyFileSync(join(root,'functions/package-lock.json'),join(backend,'functions/package-lock.json'));
+copyDemoRuleFiles(root,backend);
+writeFileSync(join(backend,'firebase.json'),JSON.stringify({functions:{source:'functions',codebase:'public-demo'},firestore:{rules:'firestore.rules'},storage:{rules:'storage.rules'}},null,2));
+const runtimeAccount='public-demo-runtime@'+DEMO_PROJECT_ID+'.iam.gserviceaccount.com';
+writeFileSync(join(backend,'functions/src/public-demo/runtime-options.js'),`import {setGlobalOptions} from 'firebase-functions/v2/options';\nsetGlobalOptions({serviceAccount:${JSON.stringify(runtimeAccount)},maxInstances:2});\n`);
+const entry=join(backend,'functions/src/public-demo/entry.js');writeFileSync(entry,"import './runtime-options.js';\n"+readFileSync(entry,'utf8'));
+writeFileSync(join(backend,'functions/.env.'+DEMO_PROJECT_ID),Object.entries({PUBLIC_DEMO_ENABLED:'true',PUBLIC_DEMO_PROJECT_ID:DEMO_PROJECT_ID,PUBLIC_DEMO_PDF_SERVER_ENABLED:'true',PUBLIC_DEMO_MUTATION_SERVER_ENABLED:'true',AUTH_BROKER_BASE_DOMAIN:'shiftoryx.gr',AUTH_BROKER_CENTRAL_DOMAIN:'demo.shiftoryx.gr',AUTH_BROKER_CENTRAL_ORIGINS:'https://demo.shiftoryx.gr',AUTH_BROKER_TENANT_ORIGINS:DEMO_TENANTS.map(t=>'https://'+t+'.shiftoryx.gr').join(',')}).map(([k,v])=>k+'='+v).join('\n')+'\n');
+writeFileSync(join(output,'package-manifest.json'),JSON.stringify({projectId:DEMO_PROJECT_ID,runtimeAccount,tenants:DEMO_TENANTS,frontend:join(output,'web'),backend,sourceRoot:root,builtAt:new Date().toISOString()},null,2));
+console.log('DEMO_PACKAGE_DIRECTORY='+output);

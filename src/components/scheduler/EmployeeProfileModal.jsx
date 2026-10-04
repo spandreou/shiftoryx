@@ -12,7 +12,7 @@ const emptyForm = {
   hireDate: '',
 };
 
-export default function EmployeeProfileModal({ open, employee, isAdmin, onClose, onSave, showRole=true }) {
+export default function EmployeeProfileModal({ open, employee, isAdmin, onClose, onSave, showRole=true, showPrivateFields=true }) {
   const [form, setForm] = useState(emptyForm);
   const [hireDateInput, setHireDateInput] = useState('');
 
@@ -100,7 +100,7 @@ export default function EmployeeProfileModal({ open, employee, isAdmin, onClose,
             />
           </label>
 
-          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          {showPrivateFields&&<><label className="text-sm font-medium text-slate-900 dark:text-slate-100">
             Τηλέφωνο
             <input
               value={form.phone}
@@ -153,6 +153,7 @@ export default function EmployeeProfileModal({ open, employee, isAdmin, onClose,
             )}
           </label>
 
+          </>}
           {isAdmin ? (
             <button
               type="submit"

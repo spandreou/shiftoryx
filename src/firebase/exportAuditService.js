@@ -1,4 +1,6 @@
 import { writeAuditLog } from './auditLogService';
+import { publicDemoEnabled } from '../demo/config';
+import { browserDemoMutationTransport } from '../demo/browserMutationTransport.ts';
 
 const SAFE_EXPORT_TYPES = new Set(['PDF', 'EXCEL', 'WORD', 'WHATSAPP', 'SCHEDULE']);
 const SAFE_EXPORT_SCOPES = new Set(['WEEK', 'MONTH', 'SCHEDULE']);
@@ -61,6 +63,13 @@ export async function writeExportAuditLog({
     const safeType = safeExportType(exportType);
     const safeScope = safeExportScope(exportScope);
     const sanitizedArchiveAction = safeArchiveAction(archiveAction);
+
+    if (publicDemoEnabled) {
+      await browserDemoMutationTransport(safeTenantId).run('aud.export', {
+        exportType: safeType, exportScope: safeScope, status: safeStatus,
+      });
+      return true;
+    }
 
     await writeAuditLog({
       tenantId: safeTenantId,

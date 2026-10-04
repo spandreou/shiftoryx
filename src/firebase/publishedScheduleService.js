@@ -18,6 +18,7 @@ import {
   withFirestoreWrite,
 } from './firestoreCore';
 import { normalizeTenantId, TENANT_SCOPED_COLLECTIONS } from '../utils/tenantDataPaths';
+import { publicDemoEnabled } from '../demo/config';
 
 function sortByDateAndTime(a, b) {
   return `${a.date}_${a.startTime}_${a.employeeName}`.localeCompare(
@@ -253,6 +254,8 @@ export async function publishMonthSchedule({
 export async function publishPublicEmployees({ tenantId, employees = [] }) {
   ensureFirestoreReady();
   const safeEmployees = (employees || []).filter((employee) => employee?.id);
+  // Trusted demo mutations write the private row and public projection together.
+  if (publicDemoEnabled) return safeEmployees.length;
   const existingSnapshot = await getDocs(tenantCollection(tenantId, TENANT_SCOPED_COLLECTIONS.publicEmployees));
   const nextIds = new Set(safeEmployees.map((employee) => employee.id));
 
@@ -288,6 +291,7 @@ export async function publishPublicAnnouncement({ tenantId, announcement }) {
   if (!announcement?.id) throw new Error('Λείπει ανακοίνωση για δημόσια προβολή.');
 
   const payload = sanitizePublicAnnouncement(announcement, tenantId);
+  if (publicDemoEnabled) return payload;
   await withFirestoreWrite(() =>
     setDoc(tenantDoc(tenantId, TENANT_SCOPED_COLLECTIONS.publicAnnouncements, announcement.id), {
       ...payload,
@@ -302,6 +306,7 @@ export async function publishPublicAnnouncement({ tenantId, announcement }) {
 export async function deletePublicAnnouncement({ tenantId, announcementId }) {
   ensureFirestoreReady();
   if (!announcementId) return false;
+  if (publicDemoEnabled) return true;
   await withFirestoreWrite(() =>
     deleteDoc(tenantDoc(tenantId, TENANT_SCOPED_COLLECTIONS.publicAnnouncements, announcementId)),
   );

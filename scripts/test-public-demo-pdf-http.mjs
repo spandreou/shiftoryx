@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {existsSync} from 'node:fs';
+const path=new URL('../functions/src/public-demo/pdf-download.ts',import.meta.url);
+assert.ok(existsSync(path),'PDF download core is not implemented');
+const {parseDownloadRequest}=await import(path);
+const id='12345678-1234-4123-8123-123456789abc';
+const request=body=>({method:'POST',headers:{'content-type':'application/json'},query:{},body:new TextEncoder().encode(body)});
+assert.deepEqual(parseDownloadRequest(request(JSON.stringify({publicationId:id}))),{publicationId:id});
+for(const body of ['null','[]','{"publicationId":"'+id+'","tenantId":"demo-fuel"}','{"publicationId":"'+id+'","publicationId":"'+id+'"}','{"publicationId":"../x"}','{"publicationId":"'+id+'"}{}'])assert.throws(()=>parseDownloadRequest(request(body)),e=>e.code==='INVALID_REQUEST');
+assert.throws(()=>parseDownloadRequest(request(' '.repeat(1025))),e=>e.code==='PAYLOAD_TOO_LARGE');
+assert.throws(()=>parseDownloadRequest({...request('{}'),headers:{'content-type':'application/json',range:'bytes=0-1'}}),e=>e.code==='INVALID_REQUEST');
+console.log('PDF_DOWNLOAD_REQUEST_POLICY=PASS checks=9');

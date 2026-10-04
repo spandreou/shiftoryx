@@ -1,0 +1,563 @@
+{
+  "audit": {
+    "auditReportVersion": 2,
+    "vulnerabilities": {
+      "@firebase/firestore": {
+        "name": "@firebase/firestore",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          "@grpc/grpc-js"
+        ],
+        "effects": [
+          "@firebase/firestore-compat",
+          "firebase"
+        ],
+        "range": "1.3.1-0 - 1.3.1-canary.df1b588 || 1.3.2-0 - 1.3.3-canary.bc4a844 || 1.13.1-0 - 1.13.1-canary.ce3addba || 1.14.0-0 - 1.15.1 || 3.7.3-20221108184443 - 3.7.3-canary.fde5adf63 || >=3.8.0-20221206221533",
+        "nodes": [
+          "node_modules/@firebase/firestore"
+        ],
+        "fixAvailable": {
+          "name": "firebase",
+          "version": "9.14.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@firebase/firestore-compat": {
+        "name": "@firebase/firestore-compat",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          "@firebase/firestore"
+        ],
+        "effects": [
+          "firebase"
+        ],
+        "range": "<=0.0.900-exp.520ca39d0 || 0.2.3-20221108184443 - 0.2.3-canary.fde5adf63 || >=0.3.0-20221206221533",
+        "nodes": [
+          "node_modules/@firebase/firestore-compat"
+        ],
+        "fixAvailable": {
+          "name": "firebase",
+          "version": "9.14.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@grpc/grpc-js": {
+        "name": "@grpc/grpc-js",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1240623,
+            "name": "@grpc/grpc-js",
+            "dependency": "@grpc/grpc-js",
+            "title": "@grpc/grpc-js: In certain configurations, getAuthContext can return unauthorized certificates as though they were authorized",
+            "url": "https://github.com/advisories/GHSA-m9gg-hp2v-232j",
+            "severity": "high",
+            "cwe": [
+              "CWE-295"
+            ],
+            "cvss": {
+              "score": 7.4,
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+            },
+            "range": "<1.13.6"
+          },
+          {
+            "source": 1240625,
+            "name": "@grpc/grpc-js",
+            "dependency": "@grpc/grpc-js",
+            "title": "@grpc/grpc-js: The server transmits some error messages thrown by method handlers to the client in status messages",
+            "url": "https://github.com/advisories/GHSA-f596-whhp-79r4",
+            "severity": "low",
+            "cwe": [
+              "CWE-550"
+            ],
+            "cvss": {
+              "score": 3.7,
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N"
+            },
+            "range": "<1.13.6"
+          }
+        ],
+        "effects": [
+          "@firebase/firestore"
+        ],
+        "range": "<=1.13.5",
+        "nodes": [
+          "node_modules/@grpc/grpc-js"
+        ],
+        "fixAvailable": {
+          "name": "firebase",
+          "version": "9.14.0",
+          "isSemVerMajor": true
+        }
+      },
+      "braces": {
+        "name": "braces",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1240992,
+            "name": "braces",
+            "dependency": "braces",
+            "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+            "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+            "severity": "high",
+            "cwe": [
+              "CWE-674"
+            ],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": "<=3.0.3"
+          }
+        ],
+        "effects": [
+          "chokidar",
+          "micromatch"
+        ],
+        "range": "*",
+        "nodes": [
+          "node_modules/braces"
+        ],
+        "fixAvailable": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      },
+      "chokidar": {
+        "name": "chokidar",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          "braces"
+        ],
+        "effects": [
+          "tailwindcss"
+        ],
+        "range": "2.0.0 - 3.6.0",
+        "nodes": [
+          "node_modules/chokidar"
+        ],
+        "fixAvailable": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      },
+      "fast-glob": {
+        "name": "fast-glob",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          "micromatch"
+        ],
+        "effects": [],
+        "range": "*",
+        "nodes": [
+          "node_modules/fast-glob"
+        ],
+        "fixAvailable": true
+      },
+      "firebase": {
+        "name": "firebase",
+        "severity": "high",
+        "isDirect": true,
+        "via": [
+          "@firebase/firestore",
+          "@firebase/firestore-compat"
+        ],
+        "effects": [],
+        "range": "0.900.22 || 6.0.2-0 - 6.0.2-canary.42eae23 || 6.0.3-0 - 6.0.4-canary.bc4a844 || 7.9.1-0 - 7.9.1-canary.0396117e || 7.13.2-0 - 7.13.2-canary.ce3addba || 7.14.0-0 - 7.15.1 || 8.10.0-20217172214 - 8.10.0-canary.f40c0db53 || 9.0.0-20217250818 - 9.0.0-canary.d0d3acb10 || 9.0.1-2021727231341 - 9.0.1-canary.e039e1472 || 9.0.2-2021891633 - 9.0.2-canary.ff9baf70c || 9.0.3-202181503543 - 9.1.0-canary.f7d8324a1 || 9.1.1-2021830195733 - 9.1.1-canary.e70de6201 || 9.1.2-20219523556 - 9.1.2-canary.fc1d36497 || 9.13.1-20221108184443 - 9.14.0-canary.fde5adf63 || >=9.15.0-20221206221533",
+        "nodes": [
+          "node_modules/firebase"
+        ],
+        "fixAvailable": {
+          "name": "firebase",
+          "version": "9.14.0",
+          "isSemVerMajor": true
+        }
+      },
+      "micromatch": {
+        "name": "micromatch",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          "braces"
+        ],
+        "effects": [
+          "fast-glob",
+          "tailwindcss"
+        ],
+        "range": ">=0.2.0",
+        "nodes": [
+          "node_modules/micromatch"
+        ],
+        "fixAvailable": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      },
+      "tailwindcss": {
+        "name": "tailwindcss",
+        "severity": "high",
+        "isDirect": true,
+        "via": [
+          "chokidar",
+          "fast-glob",
+          "micromatch"
+        ],
+        "effects": [],
+        "range": "<=0.0.0-oxide-insiders.ff2c25f || 2.1.0-canary.1 - 3.4.19",
+        "nodes": [
+          "node_modules/tailwindcss"
+        ],
+        "fixAvailable": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      }
+    },
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 9,
+        "critical": 0,
+        "total": 9
+      },
+      "dependencies": {
+        "prod": 4,
+        "dev": 5,
+        "optional": 0,
+        "peer": 0,
+        "peerOptional": 0,
+        "total": 9
+      }
+    }
+  },
+  "lock": {
+    "name": "shiftoryx",
+    "version": "0.1.0",
+    "lockfileVersion": 3,
+    "requires": true,
+    "packages": {
+      "": {
+        "name": "shiftoryx",
+        "version": "0.1.0",
+        "dependencies": {
+          "@dnd-kit/core": "^6.2.0",
+          "@dnd-kit/utilities": "^3.2.2",
+          "@e965/xlsx": "^0.20.3",
+          "docx": "^9.5.1",
+          "firebase": "^11.7.0",
+          "html2canvas": "^1.4.1",
+          "jspdf": "^4.2.1",
+          "lucide-react": "^0.511.0",
+          "postprocessing": "^6.37.8",
+          "react": "^19.1.0",
+          "react-dom": "^19.1.0",
+          "three": "^0.175.0",
+          "zustand": "^5.0.4"
+        },
+        "devDependencies": {
+          "@vitejs/plugin-react": "^6.0.2",
+          "autoprefixer": "^10.4.21",
+          "browserslist": "^4.28.8",
+          "esbuild": "^0.28.1",
+          "playwright": "^1.59.1",
+          "postcss": "^8.5.18",
+          "tailwindcss": "^3.4.17",
+          "vite": "^8.0.16"
+        }
+      },
+      "node_modules/firebase": {
+        "version": "11.10.0",
+        "resolved": "https://registry.npmjs.org/firebase/-/firebase-11.10.0.tgz",
+        "integrity": "sha512-nKBXoDzF0DrXTBQJlZa+sbC5By99ysYU1D6PkMRYknm0nCW7rJly47q492Ht7Ndz5MeYSBuboKuhS1e6mFC03w==",
+        "license": "Apache-2.0",
+        "dependencies": {
+          "@firebase/ai": "1.4.1",
+          "@firebase/analytics": "0.10.17",
+          "@firebase/analytics-compat": "0.2.23",
+          "@firebase/app": "0.13.2",
+          "@firebase/app-check": "0.10.1",
+          "@firebase/app-check-compat": "0.3.26",
+          "@firebase/app-compat": "0.4.2",
+          "@firebase/app-types": "0.9.3",
+          "@firebase/auth": "1.10.8",
+          "@firebase/auth-compat": "0.5.28",
+          "@firebase/data-connect": "0.3.10",
+          "@firebase/database": "1.0.20",
+          "@firebase/database-compat": "2.0.11",
+          "@firebase/firestore": "4.8.0",
+          "@firebase/firestore-compat": "0.3.53",
+          "@firebase/functions": "0.12.9",
+          "@firebase/functions-compat": "0.3.26",
+          "@firebase/installations": "0.6.18",
+          "@firebase/installations-compat": "0.2.18",
+          "@firebase/messaging": "0.12.22",
+          "@firebase/messaging-compat": "0.2.22",
+          "@firebase/performance": "0.7.7",
+          "@firebase/performance-compat": "0.2.20",
+          "@firebase/remote-config": "0.6.5",
+          "@firebase/remote-config-compat": "0.2.18",
+          "@firebase/storage": "0.13.14",
+          "@firebase/storage-compat": "0.3.24",
+          "@firebase/util": "1.12.1"
+        }
+      },
+      "node_modules/@firebase/firestore": {
+        "version": "4.8.0",
+        "resolved": "https://registry.npmjs.org/@firebase/firestore/-/firestore-4.8.0.tgz",
+        "integrity": "sha512-QSRk+Q1/CaabKyqn3C32KSFiOdZpSqI9rpLK5BHPcooElumOBooPFa6YkDdiT+/KhJtel36LdAacha9BptMj2A==",
+        "license": "Apache-2.0",
+        "dependencies": {
+          "@firebase/component": "0.6.18",
+          "@firebase/logger": "0.4.4",
+          "@firebase/util": "1.12.1",
+          "@firebase/webchannel-wrapper": "1.0.3",
+          "@grpc/grpc-js": "~1.9.0",
+          "@grpc/proto-loader": "^0.7.8",
+          "tslib": "^2.1.0"
+        },
+        "engines": {
+          "node": ">=18.0.0"
+        },
+        "peerDependencies": {
+          "@firebase/app": "0.x"
+        }
+      },
+      "node_modules/@firebase/firestore-compat": {
+        "version": "0.3.53",
+        "resolved": "https://registry.npmjs.org/@firebase/firestore-compat/-/firestore-compat-0.3.53.tgz",
+        "integrity": "sha512-qI3yZL8ljwAYWrTousWYbemay2YZa+udLWugjdjju2KODWtLG94DfO4NALJgPLv8CVGcDHNFXoyQexdRA0Cz8Q==",
+        "license": "Apache-2.0",
+        "dependencies": {
+          "@firebase/component": "0.6.18",
+          "@firebase/firestore": "4.8.0",
+          "@firebase/firestore-types": "3.0.3",
+          "@firebase/util": "1.12.1",
+          "tslib": "^2.1.0"
+        },
+        "engines": {
+          "node": ">=18.0.0"
+        },
+        "peerDependencies": {
+          "@firebase/app-compat": "0.x"
+        }
+      },
+      "node_modules/@grpc/grpc-js": {
+        "version": "1.9.16",
+        "resolved": "https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.9.16.tgz",
+        "integrity": "sha512-wE4Ut/olIzfKqp631XrG+wbF0v1vWFN4YL9FyXC2LJiG33DsV7PLzURjrCvY/6je2ntdRkeLpPDluzSRGaVltQ==",
+        "license": "Apache-2.0",
+        "dependencies": {
+          "@grpc/proto-loader": "^0.7.8",
+          "@types/node": ">=12.12.47"
+        },
+        "engines": {
+          "node": "^8.13.0 || >=10.10.0"
+        }
+      },
+      "node_modules/tailwindcss": {
+        "version": "3.4.19",
+        "resolved": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.19.tgz",
+        "integrity": "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ==",
+        "dev": true,
+        "license": "MIT",
+        "dependencies": {
+          "@alloc/quick-lru": "^5.2.0",
+          "arg": "^5.0.2",
+          "chokidar": "^3.6.0",
+          "didyoumean": "^1.2.2",
+          "dlv": "^1.1.3",
+          "fast-glob": "^3.3.2",
+          "glob-parent": "^6.0.2",
+          "is-glob": "^4.0.3",
+          "jiti": "^1.21.7",
+          "lilconfig": "^3.1.3",
+          "micromatch": "^4.0.8",
+          "normalize-path": "^3.0.0",
+          "object-hash": "^3.0.0",
+          "picocolors": "^1.1.1",
+          "postcss": "^8.4.47",
+          "postcss-import": "^15.1.0",
+          "postcss-js": "^4.0.1",
+          "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0",
+          "postcss-nested": "^6.2.0",
+          "postcss-selector-parser": "^6.1.2",
+          "resolve": "^1.22.8",
+          "sucrase": "^3.35.0"
+        },
+        "bin": {
+          "tailwind": "lib/cli.js",
+          "tailwindcss": "lib/cli.js"
+        },
+        "engines": {
+          "node": ">=14.0.0"
+        }
+      },
+      "node_modules/chokidar": {
+        "version": "3.6.0",
+        "resolved": "https://registry.npmjs.org/chokidar/-/chokidar-3.6.0.tgz",
+        "integrity": "sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==",
+        "dev": true,
+        "license": "MIT",
+        "dependencies": {
+          "anymatch": "~3.1.2",
+          "braces": "~3.0.2",
+          "glob-parent": "~5.1.2",
+          "is-binary-path": "~2.1.0",
+          "is-glob": "~4.0.1",
+          "normalize-path": "~3.0.0",
+          "readdirp": "~3.6.0"
+        },
+        "engines": {
+          "node": ">= 8.10.0"
+        },
+        "funding": {
+          "url": "https://paulmillr.com/funding/"
+        },
+        "optionalDependencies": {
+          "fsevents": "~2.3.2"
+        }
+      },
+      "node_modules/fast-glob": {
+        "version": "3.3.3",
+        "resolved": "https://registry.npmjs.org/fast-glob/-/fast-glob-3.3.3.tgz",
+        "integrity": "sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==",
+        "dev": true,
+        "license": "MIT",
+        "dependencies": {
+          "@nodelib/fs.stat": "^2.0.2",
+          "@nodelib/fs.walk": "^1.2.3",
+          "glob-parent": "^5.1.2",
+          "merge2": "^1.3.0",
+          "micromatch": "^4.0.8"
+        },
+        "engines": {
+          "node": ">=8.6.0"
+        }
+      },
+      "node_modules/micromatch": {
+        "version": "4.0.8",
+        "resolved": "https://registry.npmjs.org/micromatch/-/micromatch-4.0.8.tgz",
+        "integrity": "sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==",
+        "dev": true,
+        "license": "MIT",
+        "dependencies": {
+          "braces": "^3.0.3",
+          "picomatch": "^2.3.1"
+        },
+        "engines": {
+          "node": ">=8.6"
+        }
+      },
+      "node_modules/braces": {
+        "version": "3.0.3",
+        "resolved": "https://registry.npmjs.org/braces/-/braces-3.0.3.tgz",
+        "integrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+        "dev": true,
+        "license": "MIT",
+        "dependencies": {
+          "fill-range": "^7.1.1"
+        },
+        "engines": {
+          "node": ">=8"
+        }
+      }
+    }
+  },
+  "manifest": {
+    "name": "shiftoryx",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+      "dev": "vite",
+      "build": "vite build",
+      "qa:scheduler-engine": "node scripts/stress-test-scheduler-engine.mjs",
+      "qa:scheduler": "node scripts/run-validate-scheduler-rules.mjs && node scripts/test-new-employee-scheduler-regression.mjs && npm run build",
+      "test:new-employee-scheduler": "node scripts/test-new-employee-scheduler-regression.mjs",
+      "test:scheduler-contract-v2": "node scripts/test-scheduler-contract-v2.mjs",
+      "test:scheduler-contract-v3": "node scripts/test-scheduler-contract-v3.mjs && node scripts/test-scheduler-v3-services.mjs && node scripts/test-pr57-corrective.mjs && node scripts/test-scheduler-v3-profiles.mjs && node scripts/test-scheduler-v3-employee-create.mjs && node scripts/test-scheduler-v3-large-staff.mjs",
+      "test:scheduler-v3-large-staff": "node scripts/test-scheduler-v3-large-staff.mjs",
+      "qa:export-security": "node scripts/validate-export-audit-security.mjs",
+      "qa:public-readonly": "node scripts/validate-public-readonly.mjs",
+      "qa:tenant-authorization": "node scripts/validate-tenant-authorization.mjs",
+      "qa:repositories": "node scripts/validate-repository-boundaries.mjs",
+      "qa:saas-foundation": "node scripts/validate-saas-foundation.mjs",
+      "qa:auth-broker": "node scripts/validate-auth-broker.mjs",
+      "qa:registration-tokens": "node scripts/validate-registration-tokens.mjs",
+      "qa:tenant-provisioning": "node scripts/validate-tenant-provisioning.mjs",
+      "qa:phase5-portal": "node scripts/validate-phase5-portal.mjs",
+      "qa:production-read-checkpoint": "node scripts/validate-production-read-checkpoint.mjs",
+      "inventory:tenant-memberships": "node scripts/inventory-tenant-memberships.mjs --read-only",
+      "inventory:tenant-memberships:production-readonly": "node scripts/inventory-tenant-memberships-production-readonly.mjs --read-only",
+      "test:production-read-inventory:guards": "node scripts/test-production-read-inventory-guards.mjs",
+      "test:owner-role-inventory:offline": "node scripts/test-owner-role-inventory-emulator.mjs --offline",
+      "test:owner-role-inventory:emulator": "node scripts/test-owner-role-inventory-emulator.mjs --launch",
+      "test:platform-admin-overlap:offline": "node scripts/test-platform-admin-overlap-remediation-offline.mjs",
+      "test:platform-admin-overlap:emulator": "node scripts/test-platform-admin-overlap-remediation-emulator.mjs --launch",
+      "test:auth-broker:emulator": "npx --yes firebase-tools emulators:exec --project demo-gasstation-auth-broker --only auth,firestore,functions \"node scripts/test-auth-broker-emulator.mjs\"",
+      "test:registration-tokens:emulator": "npx --yes firebase-tools emulators:exec --project demo-gasstation-auth-broker --only auth,firestore,functions \"node scripts/test-registration-tokens-emulator.mjs\"",
+      "test:tenant-provisioning:emulator": "npx --yes firebase-tools emulators:exec --project demo-gasstation-auth-broker --only auth,firestore,functions \"node scripts/test-tenant-provisioning-emulator.mjs\"",
+      "test:phase5:emulator": "npx --yes firebase-tools emulators:exec --project demo-gasstation-auth-broker --only auth,firestore,functions \"node scripts/test-phase5-portal-emulator.mjs\"",
+      "test:migration:emulator": "npx --yes firebase-tools emulators:exec --config firebase-test.json --project demo-gasstation-migration --only auth,firestore \"node scripts/test-migration-emulator.mjs\"",
+      "test:provision-tenant:emulator": "npx --yes firebase-tools emulators:exec --project demo-gasstation-auth-broker --only firestore \"node scripts/test-provision-tenant-emulator.mjs\"",
+      "test:platform-admin:emulator": "npx --yes firebase-tools emulators:exec --project demo-gasstation-auth-broker --only auth,firestore \"node scripts/test-platform-admin-emulator.mjs\"",
+      "test:storage:emulator": "npx --yes firebase-tools emulators:exec --project demo-gasstation-auth-broker --only auth,firestore,storage \"node scripts/test-storage-rules-emulator.mjs\"",
+      "test:e2e:scheduler": "playwright test tests/scheduler-roles.e2e.spec.js",
+      "preview": "vite preview",
+      "security:audit": "npm audit --audit-level=high",
+      "admin:bootstrap": "node scripts/bootstrap-admin-user.mjs",
+      "tenant:seed-bp-kallis": "node scripts/seed-bp-kallis-tenant.mjs",
+      "deploy:firestore-rules": "npx --yes firebase-tools deploy --only firestore:rules",
+      "deploy:storage-rules": "npx --yes firebase-tools deploy --only storage",
+      "deploy:firebase-rules": "npx --yes firebase-tools deploy --only firestore:rules,storage",
+      "security:cve": "npx --yes cve-lite-cli@1 . --all --verbose --fail-on high",
+      "security:integrity": "node scripts/validate-firestore-integrity.mjs",
+      "security:hardening": "node scripts/validate-security-hardening.mjs",
+      "security:scan": "npm run security:hardening && npm run security:integrity && npm run security:audit && npm run security:cve",
+      "qa:central-portal-isolation": "node scripts/validate-central-portal-isolation.mjs",
+      "qa:auth-broker-negative": "node scripts/test-auth-broker-negative-matrix.mjs",
+      "qa:multi-tenant": "node scripts/test-generic-multi-tenant-discovery.mjs",
+      "qa:product-terminology": "node scripts/validate-product-terminology.mjs",
+      "qa:vercel-spa-routing": "node scripts/validate-vercel-spa-routing.mjs"
+    },
+    "dependencies": {
+      "@dnd-kit/core": "^6.2.0",
+      "@dnd-kit/utilities": "^3.2.2",
+      "@e965/xlsx": "^0.20.3",
+      "docx": "^9.5.1",
+      "firebase": "^11.7.0",
+      "html2canvas": "^1.4.1",
+      "jspdf": "^4.2.1",
+      "lucide-react": "^0.511.0",
+      "postprocessing": "^6.37.8",
+      "react": "^19.1.0",
+      "react-dom": "^19.1.0",
+      "three": "^0.175.0",
+      "zustand": "^5.0.4"
+    },
+    "devDependencies": {
+      "@vitejs/plugin-react": "^6.0.2",
+      "autoprefixer": "^10.4.21",
+      "browserslist": "^4.28.8",
+      "esbuild": "^0.28.1",
+      "playwright": "^1.59.1",
+      "postcss": "^8.5.18",
+      "tailwindcss": "^3.4.17",
+      "vite": "^8.0.16"
+    }
+  }
+}

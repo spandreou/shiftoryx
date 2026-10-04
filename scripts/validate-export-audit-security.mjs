@@ -17,12 +17,18 @@ async function loadExportAuditServiceWithAuditStub(source) {
     }
   `;
   const auditStubUrl = `data:text/javascript;base64,${Buffer.from(auditStubSource).toString('base64')}`;
+  const demoConfigStubUrl = `data:text/javascript;base64,${Buffer.from('export const publicDemoEnabled = false;').toString('base64')}`;
+  const mutationStubUrl = `data:text/javascript;base64,${Buffer.from('export function browserDemoMutationTransport() { throw new Error("Normal export cannot use demo transport"); }').toString('base64')}`;
   const instrumentedSource = source.replace(
     "from './auditLogService';",
     `from '${auditStubUrl}';`,
-  );
+  ).replace("from '../demo/config';",`from '${demoConfigStubUrl}';`)
+    .replace("from '../demo/browserMutationTransport.ts';",`from '${mutationStubUrl}';`);
 
-  assert(instrumentedSource !== source, 'Export audit behavior test must replace only the Firestore audit boundary.');
+  assert(instrumentedSource !== source, 'Export audit behavior test must replace the normal Firestore audit boundary.');
+  assert(!instrumentedSource.includes("from '../demo/config';") &&
+    !instrumentedSource.includes("from '../demo/browserMutationTransport.ts';"),
+  'Normal export test must isolate demo-only imports without bypassing the normal audit assertion.');
 
   return {
     auditStub: await import(auditStubUrl),
