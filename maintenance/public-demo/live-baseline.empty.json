@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "status": "EMPTY_UNVERIFIED",
+  "projectId": "shiftoryx-public-demo",
+  "projectNumber": "848554493137",
+  "databaseId": "(default)",
+  "region": "us-central1",
+  "bucket": "shiftoryx-public-demo.firebasestorage.app",
+  "runtimeServiceAccount": "public-demo-runtime@shiftoryx-public-demo.iam.gserviceaccount.com",
+  "captureWindowStartedAt": null,
+  "captureWindowEndedAt": null,
+  "capturedAt": null,
+  "approvedWindowId": null,
+  "functionInventoryShape": null,
+  "authDomains": [],
+  "authDomainsObservedAt": null,
+  "hostAssignments": [],
+  "frontendArtifacts": [],
+  "firestoreRules": null,
+  "storageRules": null,
+  "functions": [],
+  "schedules": [],
+  "demoState": [],
+  "admissionAndRetention": [],
+  "storageObjects": [],
+  "backup": null,
+  "verification": {
+    "independentReviewer": null,
+    "verifiedAt": null,
+    "evidenceDigest": null
+  }
+}

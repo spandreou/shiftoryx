@@ -324,10 +324,12 @@
             "via": [
               "chokidar",
               "fast-glob",
-              "micromatch"
+              "micromatch",
+              "postcss-nested",
+              "postcss-selector-parser"
             ],
             "effects": [],
-            "range": "<=0.0.0-oxide-insiders.ff2c25f || 2.1.0-canary.1 - 3.4.19",
+            "range": "<=0.0.0-oxide-insiders.ff2c25f || 0.5.0 - 3.4.19",
             "nodes": [
               "node_modules/tailwindcss"
             ],
@@ -612,7 +614,12 @@
           "to": "node_modules/micromatch"
         }
       ],
-      "ancillaryAdvisories": [],
+      "ancillaryAdvisories": [
+        {
+          "advisoryId": "GHSA-rj75-hqrm-r3gf",
+          "severity": "moderate"
+        }
+      ],
       "invalidationConditions": [
         "User-controlled or remote glob/brace patterns, untrusted build patterns or runtime Tailwind compilation.",
         "Build pipeline, package/version/path or external preview trust policy changes.",
@@ -629,22 +636,187 @@
           "severity": "high",
           "cvssScore": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
         }
-      ]
+      ],
+      "selectorEvidence": {
+        "advisoryId": "GHSA-rj75-hqrm-r3gf",
+        "cve": "CVE-2026-104844",
+        "package": "postcss-selector-parser",
+        "version": "6.1.3",
+        "severity": "moderate",
+        "conditions": {
+          "buildOnly": true,
+          "publicInputReachable": false,
+          "productionRuntimeReachable": false,
+          "functionsRuntimeReachable": false
+        },
+        "allowedPackages": [
+          {
+            "name": "postcss-selector-parser",
+            "version": "6.1.3",
+            "dependencyPath": "node_modules/postcss-selector-parser",
+            "dev": true,
+            "auditFingerprint": {
+              "name": "postcss-selector-parser",
+              "severity": "moderate",
+              "isDirect": false,
+              "via": [
+                {
+                  "source": 1241232,
+                  "name": "postcss-selector-parser",
+                  "dependency": "postcss-selector-parser",
+                  "title": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+                  "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf",
+                  "severity": "moderate",
+                  "cwe": [
+                    "CWE-400",
+                    "CWE-407"
+                  ],
+                  "cvss": {
+                    "score": 5.9,
+                    "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+                  },
+                  "range": "<7.1.6"
+                }
+              ],
+              "effects": [
+                "postcss-nested",
+                "tailwindcss"
+              ],
+              "range": "<7.1.6",
+              "nodes": [
+                "node_modules/postcss-selector-parser"
+              ],
+              "fixAvailable": {
+                "name": "tailwindcss",
+                "version": "4.3.3",
+                "isSemVerMajor": true
+              }
+            },
+            "lockFingerprint": {
+              "version": "6.1.3",
+              "resolved": "https://registry.npmjs.org/postcss-selector-parser/-/postcss-selector-parser-6.1.3.tgz",
+              "integrity": "sha512-cDoO18VWCIWRsSaws3C23b0HXRxlUknttfdNcbXnf3IGHAPRNLlXPHc6dYiatOkxW0W4uZh524Plaaw5a7WEtQ==",
+              "dev": true,
+              "license": "MIT",
+              "dependencies": {
+                "cssesc": "^3.0.0",
+                "util-deprecate": "^1.0.2"
+              },
+              "engines": {
+                "node": ">=4"
+              }
+            }
+          },
+          {
+            "name": "postcss-nested",
+            "version": "6.2.0",
+            "dependencyPath": "node_modules/postcss-nested",
+            "dev": true,
+            "auditFingerprint": {
+              "name": "postcss-nested",
+              "severity": "moderate",
+              "isDirect": false,
+              "via": [
+                "postcss-selector-parser"
+              ],
+              "effects": [],
+              "range": "2.0.3 - 6.2.0",
+              "nodes": [
+                "node_modules/postcss-nested"
+              ],
+              "fixAvailable": true
+            },
+            "lockFingerprint": {
+              "version": "6.2.0",
+              "resolved": "https://registry.npmjs.org/postcss-nested/-/postcss-nested-6.2.0.tgz",
+              "integrity": "sha512-HQbt28KulC5AJzG+cZtj9kvKB93CFCdLvog1WFLf1D+xmMvPGlBstkpTEZfK5+AN9hfJocyBFCNiqyS48bpgzQ==",
+              "dev": true,
+              "funding": [
+                {
+                  "type": "opencollective",
+                  "url": "https://opencollective.com/postcss/"
+                },
+                {
+                  "type": "github",
+                  "url": "https://github.com/sponsors/ai"
+                }
+              ],
+              "license": "MIT",
+              "dependencies": {
+                "postcss-selector-parser": "^6.1.1"
+              },
+              "engines": {
+                "node": ">=12.0"
+              },
+              "peerDependencies": {
+                "postcss": "^8.2.14"
+              }
+            }
+          }
+        ],
+        "incomingEdges": [
+          {
+            "from": "node_modules/tailwindcss",
+            "kind": "dependencies",
+            "name": "postcss-selector-parser",
+            "range": "^6.1.2",
+            "to": "node_modules/postcss-selector-parser"
+          },
+          {
+            "from": "node_modules/postcss-nested",
+            "kind": "dependencies",
+            "name": "postcss-selector-parser",
+            "range": "^6.1.1",
+            "to": "node_modules/postcss-selector-parser"
+          },
+          {
+            "from": "node_modules/tailwindcss",
+            "kind": "dependencies",
+            "name": "postcss-nested",
+            "range": "^6.2.0",
+            "to": "node_modules/postcss-nested"
+          }
+        ],
+        "cveFingerprint": [
+          {
+            "id": "GHSA-rj75-hqrm-r3gf",
+            "aliases": [
+              "CVE-2026-104844"
+            ],
+            "summary": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+            "severity": "medium",
+            "cvssScore": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          }
+        ],
+        "dependencyPaths": [
+          [
+            "project",
+            "tailwindcss",
+            "postcss-selector-parser"
+          ],
+          [
+            "project",
+            "tailwindcss",
+            "postcss-nested",
+            "postcss-selector-parser"
+          ]
+        ]
+      }
     }
   ],
   "reviewedContext": {
     "src": "8B2F3B0E029FF259FCC79C0ABC07ADBDD3298E9B44E67DF43A102DE8D494B505",
-    "functions/src": "E740C88EC7F130C9C6515B760D7B8B88C67FE1C2239A369FC80DB7065F636947",
+    "functions/src": "E171737782E1734E65BAA6CB5FEBB547EC28E63E26B167D06E7FACCC81118787",
     "package.json": "C812AA32761D2BEC77871A3476597E00583C2E376931CDF0C669588422F69D5C",
-    "vercel.json": "D8511B013B70901C7A0EC4EED0B9D8A2943A257233B7F0C53674084ECF223BDC",
+    "vercel.json": "6A8246A4C7E58382E4FB9F9450CF0DCE8072E05DBF258984370F34DB72A0D09B",
     "firebase.json": "5DD5491064E9DDC195D0D359B0D30CD004DE51384FE9699CC7D4C77D82276C29",
     "vite.config.js": "D6844AD9DD4A9375B0325C7B04A797B589255A4D42475187386E78DCB2CCBFE7",
     "tailwind.config.js": "7DE9868C115E3C07E69AEF6FA5B4BD4F0F636563BCD572B156031A449B91C47B",
     "postcss.config.js": "E32657BAF631D7C5F4DC67B4B2EE0EC8E7D5B3C41860E09CDDCE7C0377CD80BC",
     "functions/package.json": "8A748482EEF0116DDE6C831180CFFD2CD30BB03A70148FF33CAA249C20364A49",
-    "functions/package-lock.json": "507CB931FD1295D3B088AE4A36C915A43FB8DE96EE9E1013B64B2672868DD4F0",
-    "scripts/package-public-demo.mjs": "333360E772E948494023234F116D0A9FACD627DE02B98CF801913D9C33035651",
-    "scripts/build-public-demo.mjs": "ED541B24C6541CCB0E2A5C320D1FA7666C03F94EF291C3439DFA1C242E232F1C",
+    "functions/package-lock.json": "DB3B074D73E33D7F727DD6C8E023219AA573C5D8D551CD4AB1F25FF6D83BD4E2",
+    "scripts/package-public-demo.mjs": "EFB7B6661F91E8D8176BC8D22A6A13E6AB4FE2553B3BC5FE9D393CCA677D7535",
+    "scripts/build-public-demo.mjs": "28C3894944758E6E45CE6785F2EF586BA1FD9AE7D8CB1319D386C4F2E7D405F1",
     "scripts/demo-package-rules.mjs": "9E84E893B58BF36E43C3B00D536E7670AE9030B4A73FED585E96CE9C511163A9",
     "scripts/demo-firestore-rules.mjs": "8434E4388EA9802E226AD423697CA068A905ABE28E3826A9DFAA68CC481E6D9B",
     "rules": "B22DE5AF88576ECE0BBF1926D49DFE97EE6DA821D4282AC068AC778E28B7DECF",
@@ -656,6 +828,7 @@
     "Dockerfile": "A85598C91B8E2D3FA2118FA196260216BFE3295A7204906E1D0B3D41CCC67AA4",
     ".dockerignore": "C4CF17A81237761EE45040E2C2F59AFE7A68ACF8D1BECB49210DA5E3D3E5706D",
     ".vercelignore": "6DA8F1BDEB5BD71B269780ECD160949245DA07DC44D2BE79D7CD5DEE38821CF2",
-    "index.html": "A856AFB11AB42B054DCC0216540ED8E92F69B9E44F2B0EC808401497CC352E3C"
+    "index.html": "A856AFB11AB42B054DCC0216540ED8E92F69B9E44F2B0EC808401497CC352E3C",
+    "scripts/lib/auditExceptionPolicy.ts": "95B51B4EEC669350AE753DA2E58F7339A4CF7B891678067EA0F16A5A3BABB35C"
   }
 }

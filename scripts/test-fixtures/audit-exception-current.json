@@ -211,10 +211,12 @@
         "via": [
           "chokidar",
           "fast-glob",
-          "micromatch"
+          "micromatch",
+          "postcss-nested",
+          "postcss-selector-parser"
         ],
         "effects": [],
-        "range": "<=0.0.0-oxide-insiders.ff2c25f || 2.1.0-canary.1 - 3.4.19",
+        "range": "<=0.0.0-oxide-insiders.ff2c25f || 0.5.0 - 3.4.19",
         "nodes": [
           "node_modules/tailwindcss"
         ],
@@ -223,24 +225,75 @@
           "version": "4.3.3",
           "isSemVerMajor": true
         }
+      },
+      "postcss-selector-parser": {
+        "name": "postcss-selector-parser",
+        "severity": "moderate",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1241232,
+            "name": "postcss-selector-parser",
+            "dependency": "postcss-selector-parser",
+            "title": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+            "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf",
+            "severity": "moderate",
+            "cwe": [
+              "CWE-400",
+              "CWE-407"
+            ],
+            "cvss": {
+              "score": 5.9,
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": "<7.1.6"
+          }
+        ],
+        "effects": [
+          "postcss-nested",
+          "tailwindcss"
+        ],
+        "range": "<7.1.6",
+        "nodes": [
+          "node_modules/postcss-selector-parser"
+        ],
+        "fixAvailable": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      },
+      "postcss-nested": {
+        "name": "postcss-nested",
+        "severity": "moderate",
+        "isDirect": false,
+        "via": [
+          "postcss-selector-parser"
+        ],
+        "effects": [],
+        "range": "2.0.3 - 6.2.0",
+        "nodes": [
+          "node_modules/postcss-nested"
+        ],
+        "fixAvailable": true
       }
     },
     "metadata": {
       "vulnerabilities": {
         "info": 0,
         "low": 0,
-        "moderate": 0,
+        "moderate": 2,
         "high": 9,
         "critical": 0,
-        "total": 9
+        "total": 11
       },
       "dependencies": {
         "prod": 4,
-        "dev": 5,
+        "dev": 7,
         "optional": 0,
         "peer": 0,
         "peerOptional": 0,
-        "total": 9
+        "total": 11
       }
     }
   },
@@ -473,6 +526,46 @@
         },
         "engines": {
           "node": ">=8"
+        }
+      },
+      "node_modules/postcss-selector-parser": {
+        "version": "6.1.3",
+        "resolved": "https://registry.npmjs.org/postcss-selector-parser/-/postcss-selector-parser-6.1.3.tgz",
+        "integrity": "sha512-cDoO18VWCIWRsSaws3C23b0HXRxlUknttfdNcbXnf3IGHAPRNLlXPHc6dYiatOkxW0W4uZh524Plaaw5a7WEtQ==",
+        "dev": true,
+        "license": "MIT",
+        "dependencies": {
+          "cssesc": "^3.0.0",
+          "util-deprecate": "^1.0.2"
+        },
+        "engines": {
+          "node": ">=4"
+        }
+      },
+      "node_modules/postcss-nested": {
+        "version": "6.2.0",
+        "resolved": "https://registry.npmjs.org/postcss-nested/-/postcss-nested-6.2.0.tgz",
+        "integrity": "sha512-HQbt28KulC5AJzG+cZtj9kvKB93CFCdLvog1WFLf1D+xmMvPGlBstkpTEZfK5+AN9hfJocyBFCNiqyS48bpgzQ==",
+        "dev": true,
+        "funding": [
+          {
+            "type": "opencollective",
+            "url": "https://opencollective.com/postcss/"
+          },
+          {
+            "type": "github",
+            "url": "https://github.com/sponsors/ai"
+          }
+        ],
+        "license": "MIT",
+        "dependencies": {
+          "postcss-selector-parser": "^6.1.1"
+        },
+        "engines": {
+          "node": ">=12.0"
+        },
+        "peerDependencies": {
+          "postcss": "^8.2.14"
         }
       }
     }

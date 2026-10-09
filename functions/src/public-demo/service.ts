@@ -9,6 +9,8 @@ import {PdfError} from './pdf-authorization.ts';
 import {createDemoResetAdapters} from './reset-adapters.ts';
 import {createDemoResetEngine,type ResetOptions} from './reset-engine.ts';
 import {resetHttpFailure} from './reset-errors.ts';
+import {fenceDemoEntry} from './broker-fence.ts';
+export {createAuthTicket,exchangeAuthTicket} from './broker-callables.ts';
 export {publishPublicDemoPdf,downloadPublicDemoPdf} from './pdf-http.ts';
 export {mutatePublicDemo} from './mutation-http.ts';
 
@@ -39,7 +41,7 @@ export async function resetTenant(tenantValue:unknown,options:ResetOptions={}){
   catch(error){throw resetHttpFailure(error);}
 }
 const cors=[DEMO_LANDING_ORIGIN,...DEMO_TENANTS.map(demoOrigin)];
-export const enterPublicDemo=onCall({cors,region:'us-central1',maxInstances:2,concurrency:20},async request=>{
+export const enterPublicDemo=onCall({cors,region:'us-central1',maxInstances:2,concurrency:20},fenceDemoEntry(async request=>{
   try{
     const tenant=requireDemoTenant(request.data?.tenantId);if(Object.keys(request.data||{}).some(k=>k!=='tenantId'))throw new Error('DEMO_INPUT');
     assertEntryOrigin(tenant,origin(request));const {db,auth}=services();
@@ -58,7 +60,7 @@ export const enterPublicDemo=onCall({cors,region:'us-central1',maxInstances:2,co
     if(!current||current.resetting||current.generation!==data.generation)throw new HttpsError('unavailable','Το demo επαναφέρεται. Δοκίμασε ξανά.');
     return {customToken,tenantId:tenant,returnTo:demoOrigin(tenant),weekStart:data.weekStart};
   }catch(error){failure(error);}
-});
+}));
 export const resetPublicDemo=onCall({cors,region:'us-central1',maxInstances:1,concurrency:4,timeoutSeconds:420,memory:'512MiB'},async request=>{
   try{
     if(!request.auth)throw new HttpsError('unauthenticated','Απαιτείται είσοδος στο demo.');

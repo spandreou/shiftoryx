@@ -1,0 +1,9 @@
+// EMERGENCY MAINTENANCE ONLY. Separate demo-project deployment requires approval.
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{object=**} {
+      allow read, write: if false;
+    }
+  }
+}

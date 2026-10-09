@@ -1,0 +1,873 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Demo-only live recovery evidence, not R2 qualification and not restoration approval",
+  "description": "Populated records belong outside Git. Run validateRecoveryBaseline for exact inventory uniqueness and cross-field checks before any VERIFIED claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "projectId",
+    "projectNumber",
+    "databaseId",
+    "region",
+    "bucket",
+    "runtimeServiceAccount",
+    "captureWindowStartedAt",
+    "captureWindowEndedAt",
+    "capturedAt",
+    "approvedWindowId",
+    "functionInventoryShape",
+    "authDomains",
+    "authDomainsObservedAt",
+    "hostAssignments",
+    "frontendArtifacts",
+    "firestoreRules",
+    "storageRules",
+    "functions",
+    "schedules",
+    "demoState",
+    "admissionAndRetention",
+    "storageObjects",
+    "backup",
+    "verification"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "enum": [
+        "EMPTY_UNVERIFIED",
+        "CAPTURED_UNVERIFIED",
+        "VERIFIED"
+      ]
+    },
+    "projectId": {
+      "const": "shiftoryx-public-demo"
+    },
+    "projectNumber": {
+      "const": "848554493137"
+    },
+    "databaseId": {
+      "const": "(default)"
+    },
+    "region": {
+      "const": "us-central1"
+    },
+    "bucket": {
+      "const": "shiftoryx-public-demo.firebasestorage.app"
+    },
+    "runtimeServiceAccount": {
+      "const": "public-demo-runtime@shiftoryx-public-demo.iam.gserviceaccount.com"
+    },
+    "captureWindowStartedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "captureWindowEndedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "capturedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "approvedWindowId": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/opaque"
+        }
+      ]
+    },
+    "functionInventoryShape": {
+      "enum": [
+        null,
+        "HISTORICAL_SIX",
+        "TARGET_NINE"
+      ]
+    },
+    "authDomains": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "demo.shiftoryx.gr",
+          "demo-fuel.shiftoryx.gr",
+          "demo-cafe.shiftoryx.gr",
+          "demo-salon.shiftoryx.gr",
+          "demo-market.shiftoryx.gr",
+          "shiftoryx-public-demo.firebaseapp.com"
+        ]
+      }
+    },
+    "authDomainsObservedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "hostAssignments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/hostAssignment"
+      }
+    },
+    "frontendArtifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/frontendArtifact"
+      }
+    },
+    "firestoreRules": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/rulesEvidence"
+        }
+      ]
+    },
+    "storageRules": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/rulesEvidence"
+        }
+      ]
+    },
+    "functions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/functionEvidence"
+      }
+    },
+    "schedules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scheduleEvidence"
+      }
+    },
+    "demoState": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/demoStateEvidence"
+      }
+    },
+    "admissionAndRetention": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/retentionEvidence"
+      }
+    },
+    "storageObjects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/storageObjectEvidence"
+      }
+    },
+    "backup": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/backupEvidence"
+        }
+      ]
+    },
+    "verification": {
+      "$ref": "#/$defs/verificationEvidence"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "opaque": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:/+\\-]{1,240}$"
+    },
+    "tenant": {
+      "enum": [
+        "demo-fuel",
+        "demo-cafe",
+        "demo-salon",
+        "demo-market"
+      ]
+    },
+    "host": {
+      "enum": [
+        "demo.shiftoryx.gr",
+        "demo-fuel.shiftoryx.gr",
+        "demo-cafe.shiftoryx.gr",
+        "demo-salon.shiftoryx.gr",
+        "demo-market.shiftoryx.gr"
+      ]
+    },
+    "hostAssignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hostname",
+        "projectId",
+        "deploymentId",
+        "observedAt",
+        "proofSha256"
+      ],
+      "properties": {
+        "hostname": {
+          "$ref": "#/$defs/host"
+        },
+        "projectId": {
+          "const": "shiftoryx-public-demo"
+        },
+        "deploymentId": {
+          "$ref": "#/$defs/opaque"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "proofSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "frontendArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deploymentId",
+        "sha256",
+        "sourceRef",
+        "observedAt"
+      ],
+      "properties": {
+        "deploymentId": {
+          "$ref": "#/$defs/opaque"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sourceRef": {
+          "$ref": "#/$defs/opaque"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "rulesEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rulesetId",
+        "sha256",
+        "sourceRef",
+        "observedAt"
+      ],
+      "properties": {
+        "rulesetId": {
+          "type": "string",
+          "pattern": "^projects/shiftoryx-public-demo/rulesets/[A-Za-z0-9_-]+$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sourceRef": {
+          "$ref": "#/$defs/opaque"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "functionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "revisionId",
+        "artifactSha256",
+        "runtimeServiceAccount",
+        "runtime",
+        "region",
+        "trigger",
+        "state",
+        "nonsecretConfigSha256",
+        "observedAt"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "createAuthTicket",
+            "exchangeAuthTicket",
+            "cleanupAuthTickets",
+            "enterPublicDemo",
+            "resetPublicDemo",
+            "resetPublicDemosDaily",
+            "publishPublicDemoPdf",
+            "downloadPublicDemoPdf",
+            "mutatePublicDemo"
+          ]
+        },
+        "revisionId": {
+          "$ref": "#/$defs/opaque"
+        },
+        "artifactSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "runtimeServiceAccount": {
+          "const": "public-demo-runtime@shiftoryx-public-demo.iam.gserviceaccount.com"
+        },
+        "runtime": {
+          "const": "nodejs22"
+        },
+        "region": {
+          "const": "us-central1"
+        },
+        "trigger": {
+          "enum": [
+            "CALLABLE",
+            "SCHEDULE",
+            "HTTP"
+          ]
+        },
+        "state": {
+          "enum": [
+            "ACTIVE",
+            "INACTIVE",
+            "FAILED"
+          ]
+        },
+        "nonsecretConfigSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "scheduleEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "functionName",
+        "scheduleId",
+        "state",
+        "observedAt"
+      ],
+      "properties": {
+        "functionName": {
+          "enum": [
+            "cleanupAuthTickets",
+            "resetPublicDemosDaily"
+          ]
+        },
+        "scheduleId": {
+          "$ref": "#/$defs/opaque"
+        },
+        "state": {
+          "enum": [
+            "ENABLED",
+            "PAUSED"
+          ]
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "demoStateEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenantId",
+        "documentPath",
+        "generation",
+        "resetting",
+        "phase",
+        "weekStart",
+        "lastResetAt",
+        "stateDigest",
+        "controlDocumentPath",
+        "controlPhase",
+        "leaseIdDigest",
+        "leaseUntil",
+        "baseGeneration",
+        "controlDigest",
+        "observedAt"
+      ],
+      "properties": {
+        "tenantId": {
+          "$ref": "#/$defs/tenant"
+        },
+        "documentPath": {
+          "type": "string",
+          "pattern": "^demoState/demo-(fuel|cafe|salon|market)$"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resetting": {
+          "type": "boolean"
+        },
+        "phase": {
+          "enum": [
+            "OPEN",
+            "PRECHECK",
+            "DESTRUCTIVE",
+            "FINALIZE"
+          ]
+        },
+        "weekStart": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "lastResetAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stateDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "controlDocumentPath": {
+          "type": "string",
+          "pattern": "^demoControl/demo-(fuel|cafe|salon|market)$"
+        },
+        "controlPhase": {
+          "enum": [
+            "OPEN",
+            "PRECHECK",
+            "DESTRUCTIVE",
+            "FINALIZE"
+          ]
+        },
+        "leaseIdDigest": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "leaseUntil": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "baseGeneration": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "controlDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "retentionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenantId",
+        "admissionDocumentPath",
+        "admissionDigest",
+        "auditReceiptsDocumentPath",
+        "auditReceiptsDigest",
+        "pdfLimitsDocumentPath",
+        "pdfLimitsDigest",
+        "retainedIntentCount",
+        "pdfIntentCount",
+        "observedAt"
+      ],
+      "properties": {
+        "tenantId": {
+          "$ref": "#/$defs/tenant"
+        },
+        "admissionDocumentPath": {
+          "type": "string",
+          "pattern": "^demoAdmission/demo-(fuel|cafe|salon|market)$"
+        },
+        "admissionDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "auditReceiptsDocumentPath": {
+          "type": "string",
+          "pattern": "^demoAuditReceipts/demo-(fuel|cafe|salon|market)$"
+        },
+        "auditReceiptsDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "pdfLimitsDocumentPath": {
+          "type": "string",
+          "pattern": "^demoPdfLimits/demo-(fuel|cafe|salon|market)$"
+        },
+        "pdfLimitsDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "retainedIntentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pdfIntentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "storageObjectEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bucket",
+        "name",
+        "generation",
+        "sizeBytes",
+        "crc32c",
+        "md5Hash",
+        "metadataDigest",
+        "updatedAt",
+        "observedAt"
+      ],
+      "properties": {
+        "bucket": {
+          "const": "shiftoryx-public-demo.firebasestorage.app"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "crc32c": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9+/=]{1,128}$"
+        },
+        "md5Hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9+/=]{1,128}$"
+        },
+        "metadataDigest": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "backupEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "offlineLocation",
+        "sha256",
+        "restoreDrillId",
+        "observedAt"
+      ],
+      "properties": {
+        "offlineLocation": {
+          "$ref": "#/$defs/opaque"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "restoreDrillId": {
+          "$ref": "#/$defs/opaque"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "verificationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "independentReviewer",
+        "verifiedAt",
+        "evidenceDigest"
+      ],
+      "properties": {
+        "independentReviewer": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/opaque"
+            }
+          ]
+        },
+        "verifiedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "evidenceDigest": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "EMPTY_UNVERIFIED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "capturedAt": {
+            "const": null
+          },
+          "approvedWindowId": {
+            "const": null
+          },
+          "functionInventoryShape": {
+            "const": null
+          },
+          "authDomains": {
+            "maxItems": 0
+          },
+          "hostAssignments": {
+            "maxItems": 0
+          },
+          "frontendArtifacts": {
+            "maxItems": 0
+          },
+          "firestoreRules": {
+            "const": null
+          },
+          "storageRules": {
+            "const": null
+          },
+          "functions": {
+            "maxItems": 0
+          },
+          "schedules": {
+            "maxItems": 0
+          },
+          "demoState": {
+            "maxItems": 0
+          },
+          "admissionAndRetention": {
+            "maxItems": 0
+          },
+          "storageObjects": {
+            "maxItems": 0
+          },
+          "backup": {
+            "const": null
+          },
+          "verification": {
+            "properties": {
+              "independentReviewer": {
+                "const": null
+              },
+              "verifiedAt": {
+                "const": null
+              },
+              "evidenceDigest": {
+                "const": null
+              }
+            }
+          },
+          "captureWindowStartedAt": {
+            "const": null
+          },
+          "captureWindowEndedAt": {
+            "const": null
+          },
+          "authDomainsObservedAt": {
+            "const": null
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "VERIFIED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "capturedAt": {
+            "type": "string"
+          },
+          "approvedWindowId": {
+            "type": "string"
+          },
+          "authDomains": {
+            "minItems": 6,
+            "maxItems": 6
+          },
+          "hostAssignments": {
+            "minItems": 5,
+            "maxItems": 5
+          },
+          "frontendArtifacts": {
+            "minItems": 1
+          },
+          "firestoreRules": {
+            "type": "object"
+          },
+          "storageRules": {
+            "type": "object"
+          },
+          "schedules": {
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "demoState": {
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "admissionAndRetention": {
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "backup": {
+            "type": "object"
+          },
+          "verification": {
+            "properties": {
+              "independentReviewer": {
+                "type": "string"
+              },
+              "verifiedAt": {
+                "type": "string"
+              },
+              "evidenceDigest": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          },
+          "captureWindowStartedAt": {
+            "type": "string"
+          },
+          "captureWindowEndedAt": {
+            "type": "string"
+          },
+          "authDomainsObservedAt": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "VERIFIED"
+          },
+          "functionInventoryShape": {
+            "const": "HISTORICAL_SIX"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "functions": {
+            "minItems": 6,
+            "maxItems": 6
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "VERIFIED"
+          },
+          "functionInventoryShape": {
+            "const": "TARGET_NINE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "functions": {
+            "minItems": 9,
+            "maxItems": 9
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "headers": [{"source":"/:path*","headers":[
+    {"key":"Content-Security-Policy","value":"default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"},
+    {"key":"X-Content-Type-Options","value":"nosniff"},
+    {"key":"Referrer-Policy","value":"no-referrer"},
+    {"key":"Cache-Control","value":"no-store"}
+  ]}],
+  "rewrites": [{"source":"/((?!style\\.css$).*)","destination":"/index.html"}]
+}

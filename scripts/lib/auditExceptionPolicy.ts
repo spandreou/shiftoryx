@@ -2,7 +2,8 @@
 type Dict = Record<string, unknown>;
 type PackageRule = {name:string;version:string;dependencyPath:string;dev:boolean;auditFingerprint:Dict;lockFingerprint:Dict};
 type Edge = {from:string;kind:string;name:string;range:string;to:string};
-type Exception = {advisoryId:string;severity:'high';reason:string;reviewedOn:string;reviewBy:string;allowedPackages:PackageRule[];incomingEdges:Edge[];cveFingerprint:Dict[];ancillaryAdvisories:{advisoryId:string;severity:'low'}[];invalidationConditions:string[]};
+type SelectorEvidence = {advisoryId:string;cve:string;package:string;version:string;severity:'moderate';conditions:Dict;allowedPackages:PackageRule[];incomingEdges:Edge[];cveFingerprint:Dict[];dependencyPaths:string[][]};
+type Exception = {advisoryId:string;severity:'high';reason:string;reviewedOn:string;reviewBy:string;allowedPackages:PackageRule[];incomingEdges:Edge[];cveFingerprint:Dict[];ancillaryAdvisories:{advisoryId:string;severity:'low'|'moderate'}[];selectorEvidence?:SelectorEvidence;invalidationConditions:string[]};
 type Policy = {schemaVersion:1;project:'root';owner:string;reviewedContext:Record<string,string>;exceptions:Exception[]};
 type Result = {acceptedAdvisories:string[];highPackages:number};
 const CLUSTERS: Record<string,string[]> = {
@@ -10,11 +11,17 @@ const CLUSTERS: Record<string,string[]> = {
  'GHSA-vfj7-8cjw-p6xm':['tailwindcss','chokidar','fast-glob','micromatch','braces']
 };
 const SEVERITIES=['info','low','moderate','high','critical'];
+// CVE Lite 1.37.0 emits medium, not npm's moderate. Keep raw evidence intact.
+const CVE_SEVERITIES=['info','low','medium','high','critical'];
+function cveRank(value:unknown):number {const rank=CVE_SEVERITIES.indexOf(text(value));requireThat(rank>=0,'CVE_UNKNOWN');return rank;}
 const MAX_REVIEW='2026-11-03';
 const PACKAGE=/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 const VERSION=/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/;
 const GHSA=/^GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/;
-export const CONTEXT_PATHS=['src','functions/src','package.json','vercel.json','firebase.json','vite.config.js','tailwind.config.js','postcss.config.js','functions/package.json','functions/package-lock.json','scripts/package-public-demo.mjs','scripts/build-public-demo.mjs','scripts/demo-package-rules.mjs','scripts/demo-firestore-rules.mjs','rules','firestore.rules','storage.rules','firestore.demo.rules','storage.demo.rules','.github/workflows','Dockerfile','.dockerignore','.vercelignore','index.html'];
+const SELECTOR_ID='GHSA-rj75-hqrm-r3gf';
+const SELECTOR_PATHS=[['project','tailwindcss','postcss-selector-parser'],['project','tailwindcss','postcss-nested','postcss-selector-parser']];
+const SELECTOR_EDGES=[{from:'node_modules/tailwindcss',kind:'dependencies',name:'postcss-selector-parser',range:'^6.1.2',to:'node_modules/postcss-selector-parser'},{from:'node_modules/postcss-nested',kind:'dependencies',name:'postcss-selector-parser',range:'^6.1.1',to:'node_modules/postcss-selector-parser'},{from:'node_modules/tailwindcss',kind:'dependencies',name:'postcss-nested',range:'^6.2.0',to:'node_modules/postcss-nested'}];
+export const CONTEXT_PATHS=['src','functions/src','package.json','vercel.json','firebase.json','vite.config.js','tailwind.config.js','postcss.config.js','functions/package.json','functions/package-lock.json','scripts/package-public-demo.mjs','scripts/build-public-demo.mjs','scripts/demo-package-rules.mjs','scripts/demo-firestore-rules.mjs','rules','firestore.rules','storage.rules','firestore.demo.rules','storage.demo.rules','.github/workflows','Dockerfile','.dockerignore','.vercelignore','index.html','scripts/lib/auditExceptionPolicy.ts'];
 export class GateError extends Error {
  code:string;
  constructor(code:string){super(code);this.name='GateError';this.code='GATE_'+code;}
@@ -67,7 +74,7 @@ export function validatePolicy(input:unknown,now=new Date()):Policy {
  const es=array(p.exceptions,2);
  const ids=new Set<string>(),allPaths=new Set<string>();
  for(const raw of es){
-  const e=object(raw);keys(e,['advisoryId','severity','reason','reviewedOn','reviewBy','allowedPackages','incomingEdges','cveFingerprint','ancillaryAdvisories','invalidationConditions']);
+  const e=object(raw);const fields=['advisoryId','severity','reason','reviewedOn','reviewBy','allowedPackages','incomingEdges','cveFingerprint','ancillaryAdvisories','invalidationConditions'];keys(e,[...fields,'selectorEvidence'],fields);
   const id=text(e.advisoryId);requireThat(GHSA.test(id)&&Object.hasOwn(CLUSTERS,id)&&!ids.has(id)&&e.severity==='high','POLICY_SCOPE');ids.add(id);
   requireThat(text(e.reason).length>=40&&strings(e.invalidationConditions,20).length>=3,'POLICY_REASON');
   const reviewed=day(e.reviewedOn),expires=day(e.reviewBy);
@@ -90,12 +97,33 @@ export function validatePolicy(input:unknown,now=new Date()):Policy {
   requireThat(edges.length>0,'POLICY_EDGE');
   const ancillary=array(e.ancillaryAdvisories,1);
   if(id==='GHSA-m9gg-hp2v-232j')requireThat(ancillary.length===1&&stable(ancillary[0])===stable({advisoryId:'GHSA-f596-whhp-79r4',severity:'low'}),'POLICY_ANCILLARY');
-  else requireThat(ancillary.length===0,'POLICY_ANCILLARY');
+  else if(ancillary.length===0)requireThat(!Object.hasOwn(e,'selectorEvidence'),'POLICY_ANCILLARY');
+  else {
+   requireThat(stable(ancillary)===stable([{advisoryId:SELECTOR_ID,severity:'moderate'}]),'POLICY_ANCILLARY');
+   checkedSelectorEvidence(e.selectorEvidence);
+  }
+  if(id!=='GHSA-vfj7-8cjw-p6xm')requireThat(!Object.hasOwn(e,'selectorEvidence'),'POLICY_ANCILLARY');
   const cve=array(e.cveFingerprint,2).map(checkedCveAdvisory);
-  requireThat(setEqual(cve.map(a=>({advisoryId:a.id,severity:a.severity})),[{advisoryId:id,severity:'high'},...ancillary]),'POLICY_CVE_FINGERPRINT');
+  requireThat(setEqual(cve.map(a=>({advisoryId:a.id,severity:a.severity})),[{advisoryId:id,severity:'high'},...ancillary.filter(a=>object(a).severity==='low')]),'POLICY_CVE_FINGERPRINT');
  }
  return input as Policy;
 }
+function checkedSelectorEvidence(raw:unknown):void {
+ const s=object(raw);keys(s,['advisoryId','cve','package','version','severity','conditions','allowedPackages','incomingEdges','cveFingerprint','dependencyPaths']);
+ requireThat(s.advisoryId===SELECTOR_ID&&s.cve==='CVE-2026-104844'&&s.package==='postcss-selector-parser'&&s.version==='6.1.3'&&s.severity==='moderate','POLICY_SELECTOR_SCOPE');
+ requireThat(stable(s.conditions)===stable({buildOnly:true,publicInputReachable:false,productionRuntimeReachable:false,functionsRuntimeReachable:false}),'POLICY_SELECTOR_RUNTIME');
+ const ps=array(s.allowedPackages,2);requireThat(ps.length===2,'POLICY_SELECTOR_SCOPE');
+ const expected=new Map([['postcss-selector-parser','6.1.3'],['postcss-nested','6.2.0']]);
+ for(const rawP of ps){const p=object(rawP);keys(p,['name','version','dependencyPath','dev','auditFingerprint','lockFingerprint']);
+  const name=text(p.name);requireThat(expected.get(name)===p.version&&p.dependencyPath==='node_modules/'+name&&p.dev===true,'POLICY_SELECTOR_SCOPE');expected.delete(name);
+  const a=object(p.auditFingerprint),l=object(p.lockFingerprint);
+  requireThat(a.name===name&&a.severity==='moderate'&&setEqual(array(a.nodes),[p.dependencyPath])&&l.version===p.version&&l.dev===true&&typeof l.integrity==='string'&&typeof l.resolved==='string','POLICY_SELECTOR_FINGERPRINT');
+ }
+ requireThat(setEqual(array(s.incomingEdges,3),SELECTOR_EDGES)&&setEqual(array(s.dependencyPaths,2),SELECTOR_PATHS),'POLICY_SELECTOR_PATH');
+ const vs=array(s.cveFingerprint,1).map(checkedCveAdvisory);
+ requireThat(vs.length===1&&vs[0].id===SELECTOR_ID&&vs[0].severity==='medium'&&setEqual(array(vs[0].aliases),['CVE-2026-104844']),'POLICY_SELECTOR_ADVISORY');
+}
+function selectorEvidence(policy:Policy):SelectorEvidence|undefined {return policy.exceptions.find(e=>e.advisoryId==='GHSA-vfj7-8cjw-p6xm')?.selectorEvidence;}
 function resolvePackage(from:string,name:string,packages:Dict):string|null {
  let base=from;
  for(let i=0;i<64;i++){const candidate=(base?base+'/':'')+'node_modules/'+name;if(Object.hasOwn(packages,candidate))return candidate;
@@ -108,7 +136,7 @@ export function validateLock(policy:Policy,lockInput:unknown,manifestInput:unkno
  const packages=object(lock.packages),root=object(packages['']);
  requireThat(root.name===manifest.name&&root.version===manifest.version&&lock.name===manifest.name,'MANIFEST_DRIFT');
  for(const k of ['dependencies','devDependencies','optionalDependencies'])requireThat(stable(root[k]||{})===stable(manifest[k]||{}),'MANIFEST_DRIFT');
- const rules=policy.exceptions.flatMap(e=>e.allowedPackages),scopeNames=new Set(rules.map(r=>r.name));
+ const s=selectorEvidence(policy),rules=[...policy.exceptions.flatMap(e=>e.allowedPackages),...(s?.allowedPackages||[])],scopeNames=new Set(rules.map(r=>r.name));
  for(const rule of rules){const p=object(packages[rule.dependencyPath]);requireThat(p.version===rule.version&&!!p.dev===rule.dev,'LOCK_VERSION_DRIFT');requireThat(stable(p)===stable(rule.lockFingerprint),'LOCK_CONTENT_DRIFT');}
  for(const path of Object.keys(packages)){
   for(const rule of rules)if(path.endsWith('node_modules/'+rule.name))requireThat(path===rule.dependencyPath,'LOCK_PATH_DRIFT');
@@ -125,7 +153,7 @@ export function validateLock(policy:Policy,lockInput:unknown,manifestInput:unkno
    }
   }
  }
- requireThat(setEqual(actual,policy.exceptions.flatMap(e=>e.incomingEdges)),'LOCK_EDGE_DRIFT');
+ requireThat(setEqual(actual,[...policy.exceptions.flatMap(e=>e.incomingEdges),...(s?.incomingEdges||[])]),'LOCK_EDGE_DRIFT');
 }
 function checkedAdvisory(input:unknown):Dict {
  const a=object(input);keys(a,['source','name','dependency','title','url','severity','cwe','cvss','range']);
@@ -168,11 +196,17 @@ export function validateNpmAudit(auditInput:unknown,policyInput:unknown,lock:unk
  }
  const expectedNodes=new Map(policy.exceptions.flatMap(e=>e.allowedPackages.map(r=>[r.name,{exception:e,rule:r}] as const)));
  const used=new Set<string>();
+ const selector=selectorEvidence(policy),selectorNodes=new Map(selector?.allowedPackages.map(p=>[p.name,p])||[]);let selectorSeen=0;
  for(const [name,raw] of Object.entries(nodes)){
   const n=object(raw),advisories=leaves(name);
   const highest=Math.max(...advisories.map(a=>SEVERITIES.indexOf(text(a.severity))));
   requireThat(SEVERITIES[highest]===n.severity,'AUDIT_SEVERITY_MISMATCH');
   requireThat(highest<4,'CRITICAL');
+  if(selectorNodes.has(name)){
+   requireThat(highest===2&&fingerprint(n)===fingerprint(selectorNodes.get(name)!.auditFingerprint),'SELECTOR_NODE_DRIFT');
+   for(const a of advisories)requireThat(a.name==='postcss-selector-parser'&&text(a.url).split('/').at(-1)===SELECTOR_ID&&a.severity==='moderate'&&stable(a)===stable(object(selectorNodes.get('postcss-selector-parser')!.auditFingerprint).via instanceof Array?(object(selectorNodes.get('postcss-selector-parser')!.auditFingerprint).via as unknown[])[0]:null),'SELECTOR_ADVISORY_DRIFT');
+   selectorSeen++;
+  }
   if(highest<3)continue;
   const expected=expectedNodes.get(name);requireThat(expected,'UNREVIEWED_HIGH');
   requireThat(fingerprint(n)===fingerprint(expected.rule.auditFingerprint),'ADVISORY_OR_NODE_DRIFT');
@@ -183,7 +217,7 @@ export function validateNpmAudit(auditInput:unknown,policyInput:unknown,lock:unk
   }
   used.add(expected.exception.advisoryId);
  }
- requireThat(used.size===policy.exceptions.length&&counts.high===expectedNodes.size,'STALE_EXCEPTION');
+ requireThat(used.size===policy.exceptions.length&&counts.high===expectedNodes.size&&selectorSeen===selectorNodes.size,'STALE_EXCEPTION');
  return {acceptedAdvisories:[...used],highPackages:counts.high};
 }
 type ProcessResult = {status:number|null;stdout:string;error?:unknown;signal?:unknown};
@@ -194,15 +228,17 @@ export function validateNpmProcess(result:ProcessResult,policy:unknown,lock:unkn
 }
 export function cveBaseline(policyInput:unknown,now=new Date()):{version:number;createdAt:string;findings:{name:string;version:string;advisoryIds:string[]}[]} {
  const policy=validatePolicy(policyInput,now);
- return {version:1,createdAt:now.toISOString(),findings:policy.exceptions.map(e=>{
+ const findings=policy.exceptions.map(e=>{
   const target=e.allowedPackages.find(p=>p.auditFingerprint.via instanceof Array&&(p.auditFingerprint.via as unknown[]).some(v=>typeof v==='object'&&v!==null))!;
   requireThat(target,'POLICY_FINGERPRINT');
-  return {name:target.name,version:target.version,advisoryIds:[e.advisoryId,...e.ancillaryAdvisories.map(a=>a.advisoryId)]};
- })};
+  return {name:target.name,version:target.version,advisoryIds:[e.advisoryId,...e.ancillaryAdvisories.filter(a=>a.severity==='low').map(a=>a.advisoryId)]};
+ });
+ const s=selectorEvidence(policy);if(s)findings.push({name:s.package,version:s.version,advisoryIds:[s.advisoryId]});
+ return {version:1,createdAt:now.toISOString(),findings};
 }
 function checkedCveAdvisory(raw:unknown):Dict {
  const a=object(raw);keys(a,['id','aliases','summary','severity','cvssScore']);
- requireThat(GHSA.test(text(a.id,40))&&SEVERITIES.includes(text(a.severity)),'CVE_UNKNOWN');
+ requireThat(GHSA.test(text(a.id,40)),'CVE_UNKNOWN');cveRank(a.severity);
  strings(a.aliases,30);text(a.summary);requireThat(a.cvssScore===null||typeof a.cvssScore==='string','CVE_SCHEMA');return a;
 }
 function cveInventory(lock:unknown):Map<string,Dict> {
@@ -230,30 +266,42 @@ function checkedCveEnvelope(input:unknown,lock:unknown):Dict {
 }
 function checkedCveFinding(raw:unknown,inventory:Map<string,Dict>):Dict {
  const f=object(raw);
- keys(f,['package','version','severity','relationship','dev','firstFixedVersion','validatedFirstFixedVersion','fixVersionValidationNote','fixVersionPublishedAt','cooldownWarning','validatedTargetScannedVersions','validatedTargetKnownVulnerableVersions','recommendedAction','runnableFixCommand','primaryParent','rootDependencies','recommendedParentUpgrade','recommendedNpmTransitiveRemediation','cves','epssScores','prioritySignal','dependencyPaths','usage','maliciousUnverifiable','maliciousGitSource','maliciousGitSourcePinned','unresolvedAdvisoryIds','vulnerabilities']);
+ const fields=['package','version','severity','relationship','dev','firstFixedVersion','validatedFirstFixedVersion','fixVersionValidationNote','fixVersionPublishedAt','cooldownWarning','validatedTargetScannedVersions','validatedTargetKnownVulnerableVersions','recommendedAction','runnableFixCommand','primaryParent','rootDependencies','recommendedParentUpgrade','recommendedNpmTransitiveRemediation','cves','epssScores','prioritySignal','dependencyPaths','usage','maliciousUnverifiable','maliciousGitSource','maliciousGitSourcePinned','unresolvedAdvisoryIds','vulnerabilities'];
+ keys(f,fields,fields.filter(k=>k!=='recommendedParentUpgrade'));
+ if(f.recommendedParentUpgrade!==undefined&&f.recommendedParentUpgrade!==null){
+  const p=object(f.recommendedParentUpgrade);keys(p,['package','currentVersion','targetVersion','viaPath','vulnerablePackage','confidence','reason']);
+  requireThat(PACKAGE.test(text(p.package))&&PACKAGE.test(text(p.vulnerablePackage))&&VERSION.test(text(p.currentVersion))&&VERSION.test(text(p.targetVersion))&&p.confidence==='verified','CVE_REMEDIATION');strings(p.viaPath,20);text(p.reason);
+ }
+ if(f.recommendedNpmTransitiveRemediation!==null){
+  const p=object(f.recommendedNpmTransitiveRemediation);keys(p,['kind','package','currentVersion','targetChildVersion','viaPath','reason','workspaces']);
+  requireThat(p.kind==='update-parent-within-range'&&PACKAGE.test(text(p.package))&&VERSION.test(text(p.currentVersion))&&VERSION.test(text(p.targetChildVersion)),'CVE_REMEDIATION');strings(p.viaPath,20);strings(p.workspaces,20);text(p.reason);
+ }
  const name=text(f.package,214),version=text(f.version,100),p=inventory.get(name+'@'+version);
  requireThat(p&&p.dev===f.dev&&['direct','transitive'].includes(text(f.relationship)),'CVE_PACKAGE_DRIFT');
  strings(f.rootDependencies);strings(f.cves);array(f.epssScores);array(f.dependencyPaths,20).forEach(p=>strings(p,20));
  requireThat(f.maliciousUnverifiable===false&&f.maliciousGitSource===false&&f.maliciousGitSourcePinned===false,'CVE_UNSAFE_SOURCE');
  requireThat(array(f.unresolvedAdvisoryIds).length===0,'CVE_UNKNOWN');
  const vulnerabilities=array(f.vulnerabilities).map(checkedCveAdvisory);requireThat(vulnerabilities.length>0,'CVE_SCHEMA');
- const highest=Math.max(...vulnerabilities.map(a=>SEVERITIES.indexOf(text(a.severity))));
- requireThat(highest<4&&SEVERITIES[highest]===f.severity,'CVE_SEVERITY');return f;
+ const highest=Math.max(...vulnerabilities.map(a=>cveRank(a.severity)));
+ requireThat(highest<4&&highest===cveRank(f.severity),'CVE_SEVERITY');return f;
 }
 export function validateCveReport(input:unknown,policyInput:unknown,lock:unknown,manifest:unknown,now=new Date()):{acceptedPackages:number} {
  const policy=validatePolicy(policyInput,now);validateLock(policy,lock,manifest);
  const r=checkedCveEnvelope(input,lock),inventory=cveInventory(lock);
  const findings=array(r.findings);requireThat(integer(r.findingCount)===findings.length,'CVE_SCHEMA');
- const used=new Set<string>(),seen=new Set<string>();
+ const used=new Set<string>(),seen=new Set<string>(),selector=selectorEvidence(policy);let selectorSeen=false;
  for(const raw of findings){
   const f=checkedCveFinding(raw,inventory),name=text(f.package,214),version=text(f.version,100),severity=text(f.severity),key=name+'@'+version;
   requireThat(f.maliciousUnverifiable===false&&f.maliciousGitSource===false&&f.maliciousGitSourcePinned===false,'CVE_UNSAFE_SOURCE');
   requireThat(PACKAGE.test(name)&&VERSION.test(version)&&!seen.has(key),'CVE_SCHEMA');seen.add(key);
-  requireThat(SEVERITIES.includes(severity)&&severity!=='critical'&&array(f.unresolvedAdvisoryIds).length===0,'CVE_UNKNOWN');
+  requireThat(cveRank(severity)<4&&array(f.unresolvedAdvisoryIds).length===0,'CVE_UNKNOWN');
   const vulnerabilities=array(f.vulnerabilities);requireThat(vulnerabilities.length>0,'CVE_SCHEMA');
-  const ranks=vulnerabilities.map(v=>{const a=object(v);requireThat(SEVERITIES.includes(text(a.severity))&&GHSA.test(text(a.id,40)),'CVE_UNKNOWN');return SEVERITIES.indexOf(text(a.severity));});
+  const ranks=vulnerabilities.map(v=>{const a=object(v);requireThat(GHSA.test(text(a.id,40)),'CVE_UNKNOWN');return cveRank(a.severity);});
   const max=Math.max(...ranks);
-  requireThat(max>=0&&SEVERITIES[max]===severity&&max<4,'CVE_SEVERITY');
+  requireThat(max>=0&&max===cveRank(severity)&&max<4,'CVE_SEVERITY');
+  if(selector&&(name===selector.package||vulnerabilities.some(v=>object(v).id===SELECTOR_ID))){
+   requireThat(name===selector.package&&version===selector.version&&f.dev===true&&f.relationship==='transitive'&&severity==='medium'&&setEqual(vulnerabilities,selector.cveFingerprint)&&setEqual(array(f.dependencyPaths),selector.dependencyPaths),'CVE_SELECTOR_DRIFT');selectorSeen=true;
+  }
   if(max<3)continue;
   const e=policy.exceptions.find(e=>e.allowedPackages.some(p=>p.name===name));requireThat(e,'CVE_NEW_HIGH');
   const rule=e.allowedPackages.find(p=>p.name===name)!;
@@ -262,7 +310,7 @@ export function validateCveReport(input:unknown,policyInput:unknown,lock:unknown
   for(const rawV of vulnerabilities){const v=object(rawV),id=text(v.id,40);requireThat(GHSA.test(id)&&!ids.has(id),'CVE_ADVISORY');ids.add(id);
    requireThat((id===e.advisoryId&&v.severity==='high')||e.ancillaryAdvisories.some(a=>a.advisoryId===id&&a.severity===v.severity),'CVE_NEW_HIGH');
   }
-  requireThat(ids.has(e.advisoryId)&&ids.size===1+e.ancillaryAdvisories.length,'CVE_ADVISORY_DRIFT');
+  requireThat(ids.has(e.advisoryId)&&ids.size===1+e.ancillaryAdvisories.filter(a=>a.severity==='low').length,'CVE_ADVISORY_DRIFT');
   requireThat(setEqual(vulnerabilities,e.cveFingerprint),'CVE_ADVISORY_CONTENT_DRIFT');
   const paths=array(f.dependencyPaths,20).map(p=>strings(p,20));
   // derive exact name paths from the reviewed incoming edges, not scanner claims
@@ -278,7 +326,7 @@ export function validateCveReport(input:unknown,policyInput:unknown,lock:unknown
   trace(rule.dependencyPath,[]);
   requireThat(setEqual(paths,expectedPaths),'CVE_PATH_DRIFT');used.add(e.advisoryId);
  }
- requireThat(used.size===policy.exceptions.length,'CVE_STALE_EXCEPTION');return {acceptedPackages:used.size};
+ requireThat(used.size===policy.exceptions.length&&(!selector||selectorSeen),'CVE_STALE_EXCEPTION');return {acceptedPackages:used.size};
 }
 export function validateCveFilteredReport(input:unknown,lock:unknown):void {
  const r=checkedCveEnvelope(input,lock),inventory=cveInventory(lock);
@@ -286,7 +334,7 @@ export function validateCveFilteredReport(input:unknown,lock:unknown):void {
  for(const raw of findings){const f=checkedCveFinding(raw,inventory);requireThat(PACKAGE.test(text(f.package,214))&&VERSION.test(text(f.version,100))&&array(f.unresolvedAdvisoryIds).length===0,'CVE_SCHEMA');
   requireThat(f.maliciousUnverifiable===false&&f.maliciousGitSource===false&&f.maliciousGitSourcePinned===false,'CVE_UNSAFE_SOURCE');
   const vs=array(f.vulnerabilities);requireThat(vs.length>0,'CVE_SCHEMA');
-  const ranks=vs.map(v=>{const a=object(v);requireThat(GHSA.test(text(a.id,40))&&SEVERITIES.includes(text(a.severity)),'CVE_UNKNOWN');return SEVERITIES.indexOf(text(a.severity));});
-  const highest=Math.max(...ranks);requireThat(highest<3&&SEVERITIES[highest]===f.severity,'CVE_NEW_HIGH');
+  const ranks=vs.map(v=>{const a=object(v);requireThat(GHSA.test(text(a.id,40)),'CVE_UNKNOWN');return cveRank(a.severity);});
+  const highest=Math.max(...ranks);requireThat(highest<3&&highest===cveRank(f.severity),'CVE_NEW_HIGH');
  }
 }

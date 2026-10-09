@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "projectId": "shiftoryx-public-demo",
+  "bucket": "shiftoryx-public-demo.firebasestorage.app",
+  "qualificationSha": null,
+  "contextHash": null,
+  "fixtureSourceHash": null,
+  "fixtureVersion": "shiftoryx-public-demo-v1",
+  "capturedAt": null,
+  "hostnames": [
+    "demo.shiftoryx.gr",
+    "demo-fuel.shiftoryx.gr",
+    "demo-cafe.shiftoryx.gr",
+    "demo-salon.shiftoryx.gr",
+    "demo-market.shiftoryx.gr"
+  ],
+  "privateEvidence": {
+    "demo-fuel": {
+      "generation": null,
+      "evidenceSha256": null,
+      "privateCollectionCounts": {
+        "demoPublicationArtifacts": null,
+        "exportAuditLogs": null,
+        "monthlyScheduleArchives": null
+      },
+      "monthlyExportCount": null,
+      "storageObjectCount": null,
+      "resetControlPhase": null
+    },
+    "demo-cafe": {
+      "generation": null,
+      "evidenceSha256": null,
+      "privateCollectionCounts": {
+        "demoPublicationArtifacts": null,
+        "exportAuditLogs": null,
+        "monthlyScheduleArchives": null
+      },
+      "monthlyExportCount": null,
+      "storageObjectCount": null,
+      "resetControlPhase": null
+    },
+    "demo-salon": {
+      "generation": null,
+      "evidenceSha256": null,
+      "privateCollectionCounts": {
+        "demoPublicationArtifacts": null,
+        "exportAuditLogs": null,
+        "monthlyScheduleArchives": null
+      },
+      "monthlyExportCount": null,
+      "storageObjectCount": null,
+      "resetControlPhase": null
+    },
+    "demo-market": {
+      "generation": null,
+      "evidenceSha256": null,
+      "privateCollectionCounts": {
+        "demoPublicationArtifacts": null,
+        "exportAuditLogs": null,
+        "monthlyScheduleArchives": null
+      },
+      "monthlyExportCount": null,
+      "storageObjectCount": null,
+      "resetControlPhase": null
+    }
+  },
+  "tenants": {
+    "demo-fuel": {
+      "generation": null,
+      "lastResetAt": null,
+      "fixtureAt": null,
+      "weekStart": null,
+      "counts": {
+        "employees": 6,
+        "absences": 1,
+        "drafts": 0,
+        "publications": 0
+      }
+    },
+    "demo-cafe": {
+      "generation": null,
+      "lastResetAt": null,
+      "fixtureAt": null,
+      "weekStart": null,
+      "counts": {
+        "employees": 8,
+        "absences": 1,
+        "drafts": 0,
+        "publications": 0
+      }
+    },
+    "demo-salon": {
+      "generation": null,
+      "lastResetAt": null,
+      "fixtureAt": null,
+      "weekStart": null,
+      "counts": {
+        "employees": 6,
+        "absences": 0,
+        "drafts": 0,
+        "publications": 0
+      }
+    },
+    "demo-market": {
+      "generation": null,
+      "lastResetAt": null,
+      "fixtureAt": null,
+      "weekStart": null,
+      "counts": {
+        "employees": 9,
+        "absences": 1,
+        "drafts": 0,
+        "publications": 0
+      }
+    }
+  }
+}

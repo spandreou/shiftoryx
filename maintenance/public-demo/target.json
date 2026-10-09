@@ -1,0 +1,16 @@
+{
+  "projectId": "shiftoryx-public-demo",
+  "hosts": [
+    "demo.shiftoryx.gr",
+    "demo-fuel.shiftoryx.gr",
+    "demo-cafe.shiftoryx.gr",
+    "demo-salon.shiftoryx.gr",
+    "demo-market.shiftoryx.gr"
+  ],
+  "frontendEntry": "index.html",
+  "stylesheet": "style.css",
+  "firestoreRules": "firestore.rules",
+  "storageRules": "storage.rules",
+  "baselineTemplate": "live-baseline.empty.json",
+  "baselineSchema": "live-baseline.schema.json"
+}

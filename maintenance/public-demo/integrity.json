@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "files": {
+    "FUNCTION_CONTAINMENT.md": "3d8cc5368e9adf85b6066d2b8206c04113bb88fe540a787cc4dcee6084bbe6de",
+    "README.md": "7d0db50c44c88dd2dded92d1f731b340a5884887eaa6bec88e5e1115f652308a",
+    "ROLLBACK.md": "d7662cee4c2c077c25ccbd5974e1f54de96a12a54435d77de494e8a20be24bb9",
+    "firestore.rules": "713816c90752368acb299be9c3a13ee11ab2f5dbab1e03e849dea0e03a7880ca",
+    "index.html": "da60c3a38006361e6d05426574e8d0511204c6e7c83b79a892bf2cf04b1d4870",
+    "live-baseline.empty.json": "d3782d14fd6869cf0413ea2a83ba657916d1a45abd006ea98931b88559216914",
+    "live-baseline.schema.json": "e211fa7551a19b202ce5b5fcec87da5e569107d5d3db06a43d6e82f453928a65",
+    "storage.rules": "43b74cc8e63a820fc12d7c91fd46db2005d9aba97387eaa3c0aab1b0217e9428",
+    "style.css": "d661dd3b8b9347c72c3bf851b6f551497e9a59caa1d2b513319dd33d75b032d0",
+    "target.json": "297dba3dbb238798725d282d74f7f3f42dee368dd17f85435721b7f24bb0ef59",
+    "vercel.json": "eebe1e95ccd7cbbe06afa206e2ccb7b389296e36c7400c0d5d659ab6cbebc4a5"
+  }
+}

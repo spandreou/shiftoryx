@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "codex/public-shiftoryx-demo": false
+    }
+  },
   "headers": [
     {
       "source": "/:path*",

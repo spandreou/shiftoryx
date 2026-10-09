@@ -1,6 +1,46 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
+import {parseStrictJson} from './lib/auditExceptionPolicy.ts';
+// Keep new closed-schema/ancillary regressions on the existing CI test entrypoint.
+import './test-cve-schema-regression.mjs';
+import './test-selector-ancillary-policy.mjs';
+
+// Offline artifact contract; no deployment, network, or custom glob evaluation.
+const qualificationBranch='codex/public-shiftoryx-demo';
+function verifiedVercelBranchMap(raw){
+ const config=parseStrictJson(raw);
+ assert.equal(config.previewDeploymentsDisabled===true,false,'No project-wide preview disable');
+ assert.equal(config.github?.enabled===false,false,'No legacy global disable');
+ assert.equal(Object.hasOwn(config,'ignoreCommand'),false,'No ignored-build fence');
+ assert.equal(Object.hasOwn(config,'commandForIgnoringBuildStep'),false,'No ignored-build fence');
+ assert.deepEqual(config.git,{deploymentEnabled:{[qualificationBranch]:false}},'Only the exact qualification branch may be disabled');
+ return config.git.deploymentEnabled;
+}
+test('Vercel fence: real root config disables qualification only and preserves defaults',()=>{
+ const map=verifiedVercelBranchMap(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
+ assert.equal(map[qualificationBranch],false);
+ for(const branch of ['main','master','feature/test']){
+  assert.equal(Object.hasOwn(map,branch),false);
+  assert.equal(Object.hasOwn(map,branch)?map[branch]:true,true);
+ }
+});
+for(const [label,mutate] of [
+ ['global deployment false',c=>c.git.deploymentEnabled=false],
+ ['global preview disable',c=>c.previewDeploymentsDisabled=true],
+ ['legacy github disable',c=>c.github={enabled:false}],
+ ['ignoreCommand workaround',c=>c.ignoreCommand='exit 0'],
+ ['ignored build command workaround',c=>c.commandForIgnoringBuildStep='exit 0'],
+ ['wildcard false',c=>c.git.deploymentEnabled={'*':false}],
+ ['main false',c=>c.git.deploymentEnabled.main=false],
+ ['foreign branch false',c=>c.git.deploymentEnabled['feature/test']=false],
+ ['overlapping positive glob',c=>c.git.deploymentEnabled['codex/*']=true],
+ ['explicit main true',c=>c.git.deploymentEnabled.main=true],
+ ['wrong qualification branch',c=>c.git.deploymentEnabled={'codex/public-shiftoryx-demo-typo':false}]
+])test('Vercel fence rejects '+label,()=>{
+ const config={git:{deploymentEnabled:{[qualificationBranch]:false}}};mutate(config);
+ assert.throws(()=>verifiedVercelBranchMap(JSON.stringify(config)));
+});
 const fixture=JSON.parse(readFileSync(new URL('./test-fixtures/audit-exception-current.json',import.meta.url),'utf8'));
 const policy=JSON.parse(readFileSync(new URL('../security/npm-audit-exceptions.json',import.meta.url),'utf8'));
 let core;
@@ -83,7 +123,7 @@ for(const result of [
 test('expiry boundary is UTC and not controlled by audit JSON',()=>{assert.ok(core);assert.throws(()=>run(input(),new Date('2026-11-03T00:00:00Z')));assert.equal(run(input(),new Date('2026-11-02T23:59:59Z')).highPackages,9);});
 test('explicit exception cleanup allows a genuinely clean audit',()=>{const x=input();x.policy.exceptions=[];x.audit.vulnerabilities={};counts(x.audit);assert.equal(run(x).highPackages,0);assert.equal(core.validateNpmProcess({status:0,stdout:JSON.stringify(x.audit)},x.policy,x.lock,x.manifest,now).highPackages,0);});
 const cve=()=>JSON.parse(readFileSync(new URL('./test-fixtures/cve-exception-current.json',import.meta.url),'utf8'));
-test('CVE raw report and projected native baseline contain exactly reviewed identities',()=>{assert.ok(core);assert.equal(core.validateCveReport(cve(),policy,fixture.lock,fixture.manifest,now).acceptedPackages,2);assert.deepEqual(core.cveBaseline(policy,now).findings,[{name:'@grpc/grpc-js',version:'1.9.16',advisoryIds:['GHSA-m9gg-hp2v-232j','GHSA-f596-whhp-79r4']},{name:'braces',version:'3.0.3',advisoryIds:['GHSA-vfj7-8cjw-p6xm']}]);});
+test('CVE raw report and projected native baseline contain exactly reviewed identities',()=>{assert.ok(core);assert.equal(core.validateCveReport(cve(),policy,fixture.lock,fixture.manifest,now).acceptedPackages,2);assert.deepEqual(core.cveBaseline(policy,now).findings,[{name:'@grpc/grpc-js',version:'1.9.16',advisoryIds:['GHSA-m9gg-hp2v-232j','GHSA-f596-whhp-79r4']},{name:'braces',version:'3.0.3',advisoryIds:['GHSA-vfj7-8cjw-p6xm']},{name:'postcss-selector-parser',version:'6.1.3',advisoryIds:['GHSA-rj75-hqrm-r3gf']}]);});
 const cveBad=[
 ['reduced scanner inventory',x=>{x.packageCount=8;}],
 ['unexpected error field',x=>{x.error='backend failure';}],

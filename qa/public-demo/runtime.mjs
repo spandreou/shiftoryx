@@ -10,6 +10,7 @@ const output=mkdtempSync(join(tmpdir(),'shiftoryx-public-demo-'));
 const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>/^(PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|USERPROFILE|APPDATA|LOCALAPPDATA|JAVA_HOME)$/i.test(key)));
 Object.assign(env,{GCLOUD_PROJECT:project,GOOGLE_CLOUD_PROJECT:project,FUNCTIONS_EMULATOR:'true',PUBLIC_DEMO_ENABLED:'true',PUBLIC_DEMO_PROJECT_ID:'shiftoryx-public-demo',FIREBASE_AUTH_EMULATOR_HOST:'127.0.0.1:9308',FIRESTORE_EMULATOR_HOST:'127.0.0.1:8197',FIREBASE_STORAGE_EMULATOR_HOST:'127.0.0.1:9408',STORAGE_EMULATOR_HOST:'http://127.0.0.1:9408',AUTH_BROKER_BASE_DOMAIN:'shiftoryx.gr',AUTH_BROKER_CENTRAL_DOMAIN:'demo.shiftoryx.gr',AUTH_BROKER_CENTRAL_ORIGINS:'https://demo.shiftoryx.gr',CI:'true',FIREBASE_CLI_DISABLE_USAGE_REPORTING:'true'});
 env.PUBLIC_DEMO_PDF_SERVER_ENABLED='true';
+env.PUBLIC_DEMO_AUTH_BROKER_ENABLED='true';
 env.PUBLIC_DEMO_MUTATION_SERVER_ENABLED='true';
 // The installed CLI uses this documented override for cold worker socket
 // readiness too. It changes local startup only, never deployed handler limits.
